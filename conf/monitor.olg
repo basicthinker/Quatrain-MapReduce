@@ -1,0 +1,17 @@
+program monitor;
+
+define(currentMaxLoad, keys(0), {String, String, Float});
+define(maxLoad, keys(0), {String, Float});
+
+// kick off a single event 3 seconds after the program starts
+// timer(tick,3000,0);
+
+
+watch(currentMaxLoad, i);
+
+currentMaxLoad(Host, Time, Load) :-
+	maxLoad(Host, Load),
+	measurement(Host, "SYSTEM", "LOAD_1", Time, Load);
+
+maxLoad(Host, max<Value>) :-
+	measurement(Host, "SYSTEM", "LOAD_1", Time, Value);
