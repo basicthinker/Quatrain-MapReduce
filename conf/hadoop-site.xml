@@ -6,17 +6,17 @@
 <configuration>
 <property>
   <name>mapred.job.tracker</name>
-  <value>localhost:9001</value>
+  <value>okuta:9001</value>
 </property>
 
 <property>
   <name>fs.default.name</name>
-  <value>hdfs://localhost:9000</value>
+  <value>hdfs://okuta:9000</value>
 </property>
 
 <property>
   <name>hadoop.tmp.dir</name>
-  <value>/tmp/hadoop-${user.name}</value>
+  <value>/home/zhumeiqi/hadoop/hopdata</value>
   <description>A base for other temporary directories.</description>
 </property>
 

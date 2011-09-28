@@ -65,5 +65,8 @@
 	<classpathentry kind="lib" path="src/mapred/org/apache/hadoop/mapred/IsolationRunner.java"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/jol.jar"/>
+	<classpathentry kind="lib" path="/home/zhumeiqi/workspace/Quatrain-MapReduce/lib/Quatrain.jar"/>
+	<classpathentry kind="lib" path="/home/zhumeiqi/workspace/Quatrain-MapReduce/lib/hprose_client.jar"/>
+	<classpathentry kind="lib" path="/home/zhumeiqi/workspace/Quatrain-MapReduce/lib/hprose-server-tb.jar"/>
 	<classpathentry kind="output" path="eclipse"/>
 </classpath>

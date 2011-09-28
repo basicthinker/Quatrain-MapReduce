@@ -22,6 +22,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedSet;
@@ -51,11 +52,15 @@ import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.buffer.BufferUmbilicalProtocol;
 import org.apache.hadoop.mapred.buffer.OutputFile;
+import org.apache.hadoop.mapred.buffer.QuatrainManager;
 import org.apache.hadoop.util.IndexedSortable;
 import org.apache.hadoop.util.IndexedSorter;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.QuickSort;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.stanzax.quatrain.client.MrClient;
+import org.stanzax.quatrain.client.ReplySet;
+import org.stanzax.quatrain.hadoop.HadoopWrapper;
 
 public class JOutputBuffer<K extends Object, V extends Object> 
        extends Buffer<K, V>
@@ -380,6 +385,19 @@ public class JOutputBuffer<K extends Object, V extends Object>
 						                        spill.data, spill.index, spill.eof, partitions);
 				LOG.info(JOutputBuffer.this.taskid + " pipelining " + file);
 				umbilical.output(file);
+				
+				/*
+				 * @zhumeiqi
+				 */
+				LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"pipline @zhumeiqi");
+				ReplySet records  = mrUmbilical.invoke(Double.class, "output",task.getTaskID(),file);
+				Object ret=null;
+				while((ret = records.nextElement()) != null)
+				{
+					
+					System.out.print("output return:"+ret.toString());
+				}
+				System.out.print("invoke output");
 				nextPipelineSpill++;
 			}
 			else if (numSpillFiles > 1) {
@@ -390,6 +408,25 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				for (OutputFile file : files) {
 					LOG.info(JOutputBuffer.this.taskid + " pipelining " + file);
 					umbilical.output(file);
+					LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"@zhumeiqi");
+					
+					/*
+					 * @zhumeiqi
+					 */
+					
+					
+					ReplySet records = mrUmbilical.invoke(Double.class, "output",task.getTaskID(),file);
+					Object ret=null;
+					while((ret = records.nextElement()) != null)
+					{
+						
+						System.out.print("output return:"+ret.toString());
+					}
+					
+					
+					
+					System.out.print("invoke output");
+					
 				}
 				nextPipelineSpill = lastPipelineSpill + 1;
 			}
@@ -436,6 +473,16 @@ public class JOutputBuffer<K extends Object, V extends Object>
 						}
 					}
 				}
+				ReplySet records= mrUmbilical.invoke(Double.class,"finish",task.getTaskID());
+				Object ret=null;
+				while((ret = records.nextElement()) != null)
+				{
+					
+					LOG.info(task.getTaskID()+":report finish");
+				}
+				
+				
+				LOG.info(JOutputBuffer.this.taskid+"@zhumeiqi文件输出结束");
 			} finally {
 				synchronized (spillLock) {
 					open  = false;
@@ -444,6 +491,9 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				}
 			}
 		}
+		
+	
+		
 	}
 
 	private class PartitionBufferFile {
@@ -574,14 +624,27 @@ public class JOutputBuffer<K extends Object, V extends Object>
 	private boolean pipeline = false;
 	
 	private boolean eof = false;
+	/*
+	 * add zhumeiqi@2011.9.9
+	 */
+	private MrClient mrUmbilical = null;
 	
 	@SuppressWarnings("unchecked")
 	public JOutputBuffer(BufferUmbilicalProtocol umbilical, Task task, JobConf job, 
 					Reporter reporter, Progress progress, boolean pipeline,
 			       Class<K> keyClass, Class<V> valClass, 
 			       Class<? extends CompressionCodec> codecClass) throws IOException {
+		
 		super(job, task, reporter, progress, keyClass, valClass, codecClass);
 		this.umbilical = umbilical;
+		
+		/*
+		 * add zhumeiqi@2011.9.9
+		 */
+		InetSocketAddress mrAddress = QuatrainManager.getServerAddress(conf);
+		this.mrUmbilical = new MrClient(mrAddress.getAddress(),mrAddress.getPort(),new HadoopWrapper(),5000);
+		LOG.info("Quatrain Manager Address:"+mrAddress.toString());
+		
 		this.taskid = task.getTaskID();
 		this.job = job;
 		this.outputHandle = new FileHandle(taskid.getJobID());

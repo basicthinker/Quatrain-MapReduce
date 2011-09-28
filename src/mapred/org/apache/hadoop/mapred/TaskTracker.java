@@ -75,6 +75,7 @@ import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.mapred.JobClient.TaskStatusFilter;
 import org.apache.hadoop.mapred.TaskStatus.Phase;
 import org.apache.hadoop.mapred.buffer.Manager;
+import org.apache.hadoop.mapred.buffer.QuatrainManager;
 import org.apache.hadoop.mapred.pipes.Submitter;
 import org.apache.hadoop.metrics.MetricsContext;
 import org.apache.hadoop.metrics.MetricsException;
@@ -93,6 +94,7 @@ import org.apache.hadoop.util.VersionInfo;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.log4j.LogManager;
+import org.stanzax.quatrain.hadoop.HadoopWrapper;
 
 /*******************************************************
  * TaskTracker is a process that starts and tracks MR Tasks
@@ -155,6 +157,7 @@ public class TaskTracker
   volatile boolean shuttingDown = false;
   
   Manager bufferController = null;
+  QuatrainManager qManager = null;
     
   Map<TaskAttemptID, TaskInProgress> tasks = new HashMap<TaskAttemptID, TaskInProgress>();
   /**
@@ -464,6 +467,9 @@ public class TaskTracker
 	this.bufferController = new Manager(this);
 	this.bufferController.open();
 	
+	
+	
+	
     // bind address
     String address = 
       NetUtils.getServerAddress(fConf,
@@ -474,6 +480,12 @@ public class TaskTracker
     String bindAddress = socAddr.getHostName();
     int tmpPort = socAddr.getPort();
     
+    /*
+	 * add zhumeiqi @2011.9.9
+	 */
+    InetSocketAddress mrAddress = QuatrainManager.getServerAddress(fConf);
+    this.qManager = new QuatrainManager(mrAddress.getHostName(),mrAddress.getPort(),new HadoopWrapper(),100);
+    this.qManager.start();
     this.jvmManager = new JvmManager(this);
 
     // RPC initialization
@@ -999,6 +1011,7 @@ public class TaskTracker
     shuttingDown = true;
     close();
     bufferController.close();
+    this.qManager.close();
     if (this.server != null) {
       try {
         LOG.info("Shutting down StatusHttpServer");
@@ -1545,6 +1558,7 @@ public class TaskTracker
         // task if the job is done/failed
         if (!rjob.keepJobFiles){
         	bufferController.free(jobId);
+        	qManager.killJob(jobId);
         	directoryCleanupThread.addToQueue(fConf, getLocalFiles(fConf, 
         			getLocalJobDir(rjob.getJobID().toString())));
         }
