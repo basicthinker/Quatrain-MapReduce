@@ -26,7 +26,9 @@ public class FileServer extends MrServer {
         File dir = new File(dirPath.toString());
         File[] files = dir.listFiles();
         for (File file : files) {
-            preturn(new FileWritable(file));
+            if (!file.isDirectory()) {
+            	preturn(new FileWritable(file));
+            }
         }
     }
     
