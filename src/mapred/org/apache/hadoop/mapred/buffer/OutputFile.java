@@ -336,7 +336,7 @@ public class OutputFile implements Comparable<OutputFile>, Writable {
 	}
 
 	
-	private Header header;
+	protected Header header;
 	
 	private Type type;
 	
@@ -344,9 +344,9 @@ public class OutputFile implements Comparable<OutputFile>, Writable {
 
 	private Path index;
 
-	private FSDataInputStream dataIn = null;
+	protected FSDataInputStream dataIn = null;
 
-	private FSDataInputStream indexIn = null;
+	protected FSDataInputStream indexIn = null;
 	
 	private int partitions;
 	
