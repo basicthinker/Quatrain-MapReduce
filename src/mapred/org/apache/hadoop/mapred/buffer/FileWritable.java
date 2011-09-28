@@ -3,6 +3,9 @@
  */
 package org.apache.hadoop.mapred.buffer;
 
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
@@ -12,12 +15,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.WritableUtils;
+import org.apache.hadoop.mapred.InputCollector;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.TaskID;
-import org.apache.hadoop.mapred.buffer.net.BufferExchange;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange.BufferType;
-import org.apache.hadoop.mapred.buffer.net.BufferExchange.Connect;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange.Transfer;
 
 /**
@@ -29,12 +32,22 @@ public class FileWritable extends OutputFileWritable {
 	private static final Log LOG = LogFactory.getLog(FileWritable.class.getName());
 	
 	private Map<TaskID, Integer> cursor;
+	private int next;
+	
 	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource.FileSource
+	 * Construct instance intended for write operation
 	 * */
-	public FileWritable(FileSystem rfs, JobConf conf, BufferRequest request) {
-		super(rfs, conf, request);
+	public FileWritable(OutputFile file, int nextPosition, FileSystem rfs, JobConf conf, BufferRequest request) {
+		super(file, rfs, conf, request);
 		this.cursor = new HashMap<TaskID, Integer>();
+		this.next = nextPosition;
+	}
+	
+	/**
+	 * Construct instance intended for read operation
+	 * */
+	public FileWritable(OutputFile file, JobConf conf, InputCollector<?, ?> collector, Task task) {
+		super(file, conf, collector, task);
 	}
 	
 	/**
@@ -42,40 +55,46 @@ public class FileWritable extends OutputFileWritable {
 	 * */
 	@Override
 	public long write(SocketChannel channel) throws IOException {
-	//	OutputFile.FileHeader header = (OutputFile.FileHeader) file.header();
-		OutputFile.FileHeader header = (OutputFile.FileHeader) this.header; //inherited from OutputFile
-		
+		OutputFile.FileHeader header = (OutputFile.FileHeader) file.header();
 		TaskID taskid = header.owner().getTaskID();
-		if (!cursor.containsKey(taskid) || cursor.get(taskid) == header.ids().first()) { 
-			BufferExchange.Connect result = open(channel.socket(), BufferType.FILE);
-			if (result == Connect.OPEN) {
-			//	LOG.debug("Transfer file " + file + ". Destination " + destination());
-				LOG.debug("Transfer file " + this + ". Destination " + this.destination);
-			//	Transfer response = transmit(file);
-				Transfer response = transmit();
+		if (!cursor.containsKey(taskid) || cursor.get(taskid) == header.ids().first()) {
+			DataOutputStream ostream = new DataOutputStream(
+					new BufferedOutputStream(channel.socket().getOutputStream()));
+	
+			/* [NOTICE] No reading in should happen. */
+		//	BufferExchange.Connect connection = 
+		//		WritableUtils.readEnum(istream, BufferExchange.Connect.class);
+		//	if (connection == BufferExchange.Connect.OPEN) {
+				WritableUtils.writeEnum(ostream, BufferType.FILE);
+				ostream.flush();
+		//	}
+
+		//	if (result == Connect.OPEN) {
+				LOG.debug("Transfer file " + file + ". Destination " + destination);
+				Transfer response = transmit(ostream);
 				if (response == Transfer.TERMINATE) {
-				//	return Transfer.TERMINATE;
 					return OutputFileWritable.TERMINATE;
 				}
 
 				/* Update my next cursor position. */
 				int position = header.ids().last() + 1;
-				try { 
-					int next = istream.readInt();
+				//try { 
+					/* [NOTICE] Passed in by parameter instead of read in */
+					// int next = istream.readInt();
 					if (position != next) {
 						LOG.debug("Assumed next position " + position + " != actual " + next);
 						position = next;
 					}
-				} catch (IOException e) { e.printStackTrace(); LOG.error(e); }
+				//} catch (IOException e) { e.printStackTrace(); LOG.error(e); }
 
 				if (response == Transfer.SUCCESS) {
 					if (header.eof()) {
 						LOG.debug("Transfer end of file for source task " + taskid);
-					//	close(); // Notice that it does not refer to OutputFile.close().
+					//	close(); // Quatrain takes charge of closing sockets.
+						ostream.writeInt(0); // [NOTICE] Taken from method close().
 					}
 					cursor.put(taskid, position);
-				//	LOG.debug("Transfer complete. New position " + cursor.get(taskid) + ". Destination " + destination());
-					LOG.debug("Transfer complete. New position " + cursor.get(taskid) + ". Destination " + this.destination);
+					LOG.debug("Transfer complete. New position " + cursor.get(taskid) + ". Destination " + destination);
 					return OutputFileWritable.SUCCESS;
 				} else if (response == Transfer.IGNORE){
 					cursor.put(taskid, position); // Update my cursor position
@@ -84,33 +103,29 @@ public class FileWritable extends OutputFileWritable {
 					LOG.debug("Unsuccessful send. Transfer response: " + response);
 					return OutputFileWritable.ERROR;
 				}
-			//	return response;
-			} else if (result == Connect.BUFFER_COMPLETE) {
-				cursor.put(taskid, Integer.MAX_VALUE);
-			//	return Transfer.SUCCESS;
-				return OutputFileWritable.SUCCESS;
+			/* [NOTICE] Some actions discarded. */	
+		//	} else if (result == Connect.BUFFER_COMPLETE) {
+		//		cursor.put(taskid, Integer.MAX_VALUE);
+		//		return OutputFileWritable.SUCCESS;
 			} else {
-			//	return Transfer.RETRY;
 				return OutputFileWritable.RETRY;
 			}
-		}
-		else {
-			LOG.debug("Transfer ignore header " + header + " current position " + cursor.get(taskid));
-		//	return Transfer.IGNORE;
-			return OutputFileWritable.IGNORE;
-		}
+	//	} else {
+	//		LOG.debug("Transfer ignore header " + header + " current position " + cursor.get(taskid));
+	//		return OutputFileWritable.IGNORE;
+	//	}
 	}
 
 	@Override
 	public long read(SocketChannel channel) throws IOException {
+		OutputFile.FileHeader header = (OutputFile.FileHeader)file.header();
+		DataInputStream istream = new DataInputStream(channel.socket().getInputStream());
+		
 		/* Get my position for this source taskid. */
-	//	Position position = null;
 		Integer position = null;
-		OutputFile.FileHeader header = (OutputFile.FileHeader) this.header;
 		TaskID inputTaskID = header.owner().getTaskID();
 		synchronized (cursor) {
 			if (!cursor.containsKey(inputTaskID)) {
-			//	cursor.put(inputTaskID, new Position(-1));
 				cursor.put(inputTaskID, -1);
 			}
 			position = cursor.get(inputTaskID);
@@ -120,42 +135,32 @@ public class FileWritable extends OutputFileWritable {
 		int pos = position.intValue() < 0 ? header.ids().first() : position.intValue(); 
 		synchronized (position) {
 			if (header.ids().first() == pos) {
-				WritableUtils.writeEnum(ostream, BufferExchange.Transfer.READY);
-				ostream.flush();
+				/* [NOTICE] The following singnal is not sent. */
+			//	WritableUtils.writeEnum(ostream, BufferExchange.Transfer.READY);
+			//	ostream.flush();
 				LOG.debug("File handler " + hashCode() + " ready to receive -- " + header);
 				if (collector.read(istream, header)) {
 				//	updateProgress(header);
-					setValue(this.header);
 					synchronized (task) {
 						task.notifyAll();
 					}
 				}
-			//	position.set(header.ids().last() + 1);
 				position = header.ids().last() + 1;
 				LOG.debug("File handler " + " done receiving up to position " + position.intValue());
 			}
 			else {
 				LOG.debug(this + " ignoring -- " + header);
-				WritableUtils.writeEnum(ostream, BufferExchange.Transfer.IGNORE);
+				/* [NOTICE] Adjust this signal according to new protocol */
+			//	WritableUtils.writeEnum(ostream, BufferExchange.Transfer.IGNORE);
 			}
 		}
+		/* [NOTICE] The following info is not sent.
+		 * Return value of this method is only used for log. */
 		/* Indicate the next spill file that I expect. */
 		pos = position.intValue();
-		LOG.debug("Updating source position to " + pos);
-		ostream.writeInt(pos);
-		ostream.flush();
-		return position;
-	}
-
-	@Override
-	public void setValue(Object value) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public Object getValue() {
-		// TODO Auto-generated method stub
-		return null;
+	//	LOG.debug("Updating source position to " + pos);
+	//	ostream.writeInt(pos);
+	//	ostream.flush();
+		return pos;
 	}
 }

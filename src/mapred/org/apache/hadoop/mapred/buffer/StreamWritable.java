@@ -16,8 +16,8 @@ import org.apache.hadoop.mapred.buffer.net.BufferRequest;
  */
 public class StreamWritable extends OutputFileWritable {
 
-	protected StreamWritable(FileSystem rfs, JobConf conf, BufferRequest request) {
-		super(rfs, conf, request);
+	protected StreamWritable(OutputFile file, FileSystem rfs, JobConf conf, BufferRequest request) {
+		super(file, rfs, conf, request);
 		// TODO Auto-generated constructor stub
 	}
 

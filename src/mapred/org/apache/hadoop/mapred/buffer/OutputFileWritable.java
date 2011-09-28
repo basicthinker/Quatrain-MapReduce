@@ -3,21 +3,18 @@
  */
 package org.apache.hadoop.mapred.buffer;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.channels.SocketChannel;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.InputCollector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.TaskAttemptID;
+import org.apache.hadoop.mapred.buffer.OutputFile.Header;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
 import org.stanzax.quatrain.io.ChannelWritable;
@@ -26,12 +23,12 @@ import org.stanzax.quatrain.io.ChannelWritable;
  * @author Jinglei Ren
  *
  */
-public abstract class OutputFileWritable extends OutputFile implements
-		ChannelWritable {
+public abstract class OutputFileWritable implements ChannelWritable {
 
 	private static final Log LOG = LogFactory.getLog(
 			OutputFileWritable.class.getName());
 	
+	protected OutputFile file;
 	protected JobConf conf;
 	
 	/**
@@ -43,14 +40,6 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#rfs
 	 * */
 	private FileSystem rfs;
-	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#ostream
-	 * */
-	protected DataOutputStream ostream = null;
-	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#istream
-	 * */
-	protected DataInputStream istream = null;
 	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#destination
 	 * */
@@ -72,7 +61,8 @@ public abstract class OutputFileWritable extends OutputFile implements
 	/**
 	 * Construct instance intended for write operation
 	 * */
-	protected OutputFileWritable(FileSystem rfs, JobConf conf, BufferRequest request) {
+	protected OutputFileWritable(OutputFile file, FileSystem rfs, JobConf conf, BufferRequest request) {
+		this.file = file;
 		this.rfs = rfs;
 		this.conf = conf;
 		this.destination = request.destination();
@@ -80,53 +70,20 @@ public abstract class OutputFileWritable extends OutputFile implements
 	}
 	
 	/**
-	 * Construct instance inteded for read operation
+	 * Construct instance intended for read operation
 	 * */
-	protected OutputFileWritable(JobConf conf, InputCollector<?, ?> collector, Task task) {
+	protected OutputFileWritable(OutputFile file, JobConf conf, InputCollector<?, ?> collector, Task task) {
+		this.file = file;
 		this.collector = collector;
 		this.task = task;
 	}
 	
 	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#open(BufferExchange.BufferType bufferType)
-	 * */
-	protected BufferExchange.Connect open(Socket socket, BufferExchange.BufferType bufferType) {
-		if (socket == null || socket.isClosed()) {
-		//	socket = new Socket(); // passed in from parameter
-			try {
-			//	socket.connect(this.address);
-				ostream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-				istream = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-				
-				BufferExchange.Connect connection = 
-					WritableUtils.readEnum(istream, BufferExchange.Connect.class);
-				if (connection == BufferExchange.Connect.OPEN) {
-					WritableUtils.writeEnum(ostream, bufferType);
-					ostream.flush();
-				}
-				else {
-					return connection;
-				}
-			} catch (IOException e) {
-			//	if (socket != null && !socket.isClosed()) {
-			//		try { socket.close();
-			//		} catch (Throwable t) { }
-			//	}
-			//	socket = null;
-				ostream = null;
-				istream = null;
-				return BufferExchange.Connect.ERROR;
-			}
-		}
-		return BufferExchange.Connect.OPEN;
-	}
-	
-	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#transmit(OutputFile file)
 	 * */
-	protected BufferExchange.Transfer transmit() {
+	protected BufferExchange.Transfer transmit(DataOutputStream ostream) {
 		try {
-			open(rfs);
+			file.open(rfs);
 		} catch (IOException e) {
 			/* We don't want to send anymore of this output! */
 			return BufferExchange.Transfer.TERMINATE;
@@ -134,30 +91,33 @@ public abstract class OutputFileWritable extends OutputFile implements
 
 		try {
 			ostream.writeInt(Integer.MAX_VALUE); // Sending something
-			OutputFile.Header header = seek(partition);
+			OutputFile.Header header = file.seek(partition);
 
 			OutputFile.Header.writeHeader(ostream, header);
 			ostream.flush();
 
-			BufferExchange.Transfer response = WritableUtils.readEnum(istream, BufferExchange.Transfer.class);
-			if (BufferExchange.Transfer.READY == response) {
+			/* [NOTICE] */
+		//	BufferExchange.Transfer response = WritableUtils.readEnum(istream, BufferExchange.Transfer.class);
+		//	if (BufferExchange.Transfer.READY == response) {
 				LOG.debug(this + " sending " + header);
-				write();
+				write(header, file.dataInputStream(), ostream);
 				return BufferExchange.Transfer.SUCCESS;
-			}
-			return response;
+		//	}
+		//	return response;
 		} catch (IOException e) {
-			// close(); // Quatrain takes charge of closing sockets.
+			// close(); // Close so reconnect will figure out current status.
+						// Quatrain takes charge of closing sockets.
 			LOG.debug(e);
 		}
 		return BufferExchange.Transfer.RETRY;
 	}
 	
 	/**
+	 * @param fstream 
+	 * @param header 
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#write(OutputFile.Header header, DataInputStream fstream)
 	 * */
-	private void write() throws IOException {
-//	private void write(OutputFile.Header header, DataInputStream fstream) throws IOException {
+	private void write(Header header, DataInputStream fstream, DataOutputStream ostream) throws IOException {
 		long length = header.compressed();
 		if (length == 0 && header.progress() < 1.0f) {
 			return;
@@ -166,13 +126,13 @@ public abstract class OutputFileWritable extends OutputFile implements
 		LOG.debug("Writing data for header " + header);
 		long bytesSent = 0L;
 		byte[] buf = new byte[64 * 1024];
-		int n = dataIn.read(buf, 0, (int)Math.min(length, buf.length));
+		int n = fstream.read(buf, 0, (int)Math.min(length, buf.length));
 		while (n > 0) {
 			bytesSent += n;
 			length -= n;
 			ostream.write(buf, 0, n);
 
-			n = dataIn.read(buf, 0, (int) Math.min(length, buf.length));
+			n = fstream.read(buf, 0, (int) Math.min(length, buf.length));
 		}
 		ostream.flush();
 		LOG.debug(bytesSent + " total bytes sent for header " + header);
@@ -183,7 +143,7 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 */
 	@Override
 	public void setValue(Object value) {
-		header = (Header)value;
+		this.value = (Header)value;
 	}
 
 	/* (non-Javadoc)
@@ -191,8 +151,10 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 */
 	@Override
 	public Object getValue() {
-		return header;
+		return value;
 	}
+	
+	private Header value;
 	
 	/* (non-Javadoc)
 	 * @see org.stanzax.quatrain.io.ChannelWritable#write(java.nio.channels.SocketChannel)
