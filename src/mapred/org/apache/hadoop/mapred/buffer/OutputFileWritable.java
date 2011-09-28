@@ -14,7 +14,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.WritableUtils;
+import org.apache.hadoop.mapred.InputCollector;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
@@ -29,12 +31,14 @@ public abstract class OutputFileWritable extends OutputFile implements
 
 	private static final Log LOG = LogFactory.getLog(
 			OutputFileWritable.class.getName());
+	
+	protected JobConf conf;
+	
 	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchange#Transfer
 	 * */
 	public static final int READY = 0, IGNORE = -1, SUCCESS = 1, RETRY = 2, TERMINATE = -2;
 	public static final int ERROR = -3;
-	
 	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#rfs
 	 * */
@@ -48,10 +52,6 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 * */
 	protected DataInputStream istream = null;
 	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#conf
-	 * */
-	protected JobConf conf;
-	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#destination
 	 * */
 	protected TaskAttemptID destination;
@@ -60,11 +60,31 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 * */
 	protected int partition;
 	
+	/**
+	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSink
+	 * */
+	protected InputCollector<?, ?> collector;
+	/**
+	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSink
+	 * */
+	protected Task task;
+	
+	/**
+	 * Construct instance intended for write operation
+	 * */
 	protected OutputFileWritable(FileSystem rfs, JobConf conf, BufferRequest request) {
 		this.rfs = rfs;
 		this.conf = conf;
 		this.destination = request.destination();
 		this.partition = request.partition();
+	}
+	
+	/**
+	 * Construct instance inteded for read operation
+	 * */
+	protected OutputFileWritable(JobConf conf, InputCollector<?, ?> collector, Task task) {
+		this.collector = collector;
+		this.task = task;
 	}
 	
 	/**
@@ -159,6 +179,22 @@ public abstract class OutputFileWritable extends OutputFile implements
 	}
 	
 	/* (non-Javadoc)
+	 * @see org.stanzax.quatrain.io.ChannelWritable#setValue(java.lang.Object)
+	 */
+	@Override
+	public void setValue(Object value) {
+		header = (Header)value;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.stanzax.quatrain.io.ChannelWritable#getValue()
+	 */
+	@Override
+	public Object getValue() {
+		return header;
+	}
+	
+	/* (non-Javadoc)
 	 * @see org.stanzax.quatrain.io.ChannelWritable#write(java.nio.channels.SocketChannel)
 	 */
 	@Override
@@ -169,17 +205,5 @@ public abstract class OutputFileWritable extends OutputFile implements
 	 */
 	@Override
 	public abstract long read(SocketChannel channel) throws IOException;
-
-	/* (non-Javadoc)
-	 * @see org.stanzax.quatrain.io.ChannelWritable#setValue(java.lang.Object)
-	 */
-	@Override
-	public abstract void setValue(Object value);
-
-	/* (non-Javadoc)
-	 * @see org.stanzax.quatrain.io.ChannelWritable#getValue()
-	 */
-	@Override
-	public abstract Object getValue();
 
 }
