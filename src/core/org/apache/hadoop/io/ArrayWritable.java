@@ -29,7 +29,7 @@ import java.lang.reflect.Array;
  *
  * For example:
  * <code>
- * public class IntArrayWritable extends ArrayWritable {
+ * public class IntArrayWritable extends Array {
  *   public IntArrayWritable() { 
  *     super(IntWritable.class); 
  *   }	

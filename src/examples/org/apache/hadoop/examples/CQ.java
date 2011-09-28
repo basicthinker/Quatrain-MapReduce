@@ -235,7 +235,7 @@ public class CQ extends Configured implements Tool {
 			while (true) {
 				SystemStats stat = new SystemStats();
 				word.set(hn);
-				// I was having a lot of trouble with ArrayWritable...
+				// I was having a lot of trouble with Array...
 
 				// calc load here.
 				float u = stat.getFloat(SystemStatEntry.USER);
