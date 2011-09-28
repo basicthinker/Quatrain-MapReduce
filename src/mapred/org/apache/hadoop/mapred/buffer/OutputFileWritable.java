@@ -70,7 +70,7 @@ public abstract class OutputFileWritable implements ChannelWritable {
 	}
 	
 	/**
-	 * Construct instance inteded for read operation
+	 * Construct instance intended for read operation
 	 * */
 	protected OutputFileWritable(OutputFile file, JobConf conf, InputCollector<?, ?> collector, Task task) {
 		this.file = file;

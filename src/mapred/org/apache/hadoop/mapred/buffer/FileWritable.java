@@ -15,7 +15,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.WritableUtils;
+import org.apache.hadoop.mapred.InputCollector;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.TaskID;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange.BufferType;
@@ -31,13 +33,21 @@ public class FileWritable extends OutputFileWritable {
 	
 	private Map<TaskID, Integer> cursor;
 	private int next;
+	
 	/**
-	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource.FileSource
+	 * Construct instance intended for write operation
 	 * */
 	public FileWritable(OutputFile file, int nextPosition, FileSystem rfs, JobConf conf, BufferRequest request) {
 		super(file, rfs, conf, request);
 		this.cursor = new HashMap<TaskID, Integer>();
 		this.next = nextPosition;
+	}
+	
+	/**
+	 * Construct instance intended for read operation
+	 * */
+	public FileWritable(OutputFile file, JobConf conf, InputCollector<?, ?> collector, Task task) {
+		super(file, conf, collector, task);
 	}
 	
 	/**
