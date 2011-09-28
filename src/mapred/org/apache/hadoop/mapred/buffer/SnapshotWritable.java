@@ -16,9 +16,9 @@ import org.apache.hadoop.mapred.buffer.net.BufferRequest;
  */
 public class SnapshotWritable extends OutputFileWritable {
 
-	protected SnapshotWritable(FileSystem rfs, JobConf conf,
+	protected SnapshotWritable(OutputFile file, FileSystem rfs, JobConf conf,
 			BufferRequest request) {
-		super(rfs, conf, request);
+		super(file, rfs, conf, request);
 		// TODO Auto-generated constructor stub
 	}
 
