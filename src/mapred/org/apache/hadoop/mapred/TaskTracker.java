@@ -94,7 +94,7 @@ import org.apache.hadoop.util.VersionInfo;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.log4j.LogManager;
-import org.stanzax.quatrain.hadoop.HadoopWrapper;
+
 
 /*******************************************************
  * TaskTracker is a process that starts and tracks MR Tasks
