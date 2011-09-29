@@ -37,10 +37,10 @@ public class FileWritable extends OutputFileWritable {
 	/**
 	 * Construct instance intended for write operation
 	 * */
-	public FileWritable(OutputFile file, int nextPosition, FileSystem rfs, JobConf conf, BufferRequest request) {
-		super(file, rfs, conf, request);
+	public FileWritable(OutputFile file,  FileSystem rfs, JobConf conf) {
+		super(file, rfs, conf);
 		this.cursor = new HashMap<TaskID, Integer>();
-		this.next = nextPosition;
+		//this.next = nextPosition;
 	}
 	
 	/**
@@ -55,36 +55,52 @@ public class FileWritable extends OutputFileWritable {
 	 * */
 	@Override
 	public long write(SocketChannel channel) throws IOException {
+		channel.configureBlocking(true);
+		System.out.print("@zhumeiqi_debug:Call write");
 		OutputFile.FileHeader header = (OutputFile.FileHeader) file.header();
 		TaskID taskid = header.owner().getTaskID();
 		if (!cursor.containsKey(taskid) || cursor.get(taskid) == header.ids().first()) {
+			System.out.println("@zhumeiqi_write:begin_write"+taskid);
 			DataOutputStream ostream = new DataOutputStream(
 					new BufferedOutputStream(channel.socket().getOutputStream()));
-	
+			System.out.println("@zhumeiqi_write:begin_write ostrem:"+channel.isBlocking());
 			/* [NOTICE] No reading in should happen. */
 		//	BufferExchange.Connect connection = 
 		//		WritableUtils.readEnum(istream, BufferExchange.Connect.class);
 		//	if (connection == BufferExchange.Connect.OPEN) {
+				try{
 				WritableUtils.writeEnum(ostream, BufferType.FILE);
 				ostream.flush();
+				System.out.println("@zhumeiqi_write:begin_write FILE_TYPE");
+				}catch (Exception e)
+				{
+					e.printStackTrace();
+					System.out.print("@zhumeiqi_debug:write"+e.getClass().toString()+":"+e.getMessage());
+				}catch(Error e)
+				{
+					e.printStackTrace();
+					System.out.print("@zhumeiqi_debug:write"+e.getClass().getClass()+":"+e.getMessage().toString());
+				}
+				
 		//	}
 
 		//	if (result == Connect.OPEN) {
 				LOG.debug("Transfer file " + file + ". Destination " + destination);
 				Transfer response = transmit(ostream);
+				
 				if (response == Transfer.TERMINATE) {
 					return OutputFileWritable.TERMINATE;
 				}
-
+				System.out.println("@zhumeiqi_write:begin_write transmit");
 				/* Update my next cursor position. */
 				int position = header.ids().last() + 1;
 				//try { 
 					/* [NOTICE] Passed in by parameter instead of read in */
 					// int next = istream.readInt();
-					if (position != next) {
-						LOG.debug("Assumed next position " + position + " != actual " + next);
-						position = next;
-					}
+//					if (position != next) {
+//						LOG.debug("Assumed next position " + position + " != actual " + next);
+//						position = next;
+				//	}
 				//} catch (IOException e) { e.printStackTrace(); LOG.error(e); }
 
 				if (response == Transfer.SUCCESS) {
@@ -118,16 +134,31 @@ public class FileWritable extends OutputFileWritable {
 
 	@Override
 	public long read(SocketChannel channel) throws IOException {
+		
 		//OutputFile.FileHeader.readHeader(in)
-		
-		DataInputStream istream = new DataInputStream(channel.socket().getInputStream());
-		
-		file.setHeader(OutputFile.FileHeader.readHeader(istream));
+		System.out.println("@zhumeiqi_debug:Call read@@@@@@@");
+		DataInputStream istream = null;
+		try{
+			channel.configureBlocking(true);
+			istream = new DataInputStream(channel.socket().getInputStream());
+			WritableUtils.readEnum(istream, BufferType.class);
+			System.out.println("@zhumeiqi_debug:call read ,isStream");
+			file.setHeader(OutputFile.FileHeader.readHeader(istream));
+			System.out.println("@zhumeiqi_debug:call read ,read_header");
+		}catch(Exception e)
+		{
+			System.out.print("@zhumeiqi_debug"+e.getClass().toString()+":"+e.getStackTrace());
+			throw new IOException(e);
+		}catch( Error e)
+		{
+			System.out.print("@zhumeiqi_debug"+e.getClass().toString()+":"+e.getStackTrace());
+		}
 		
 		OutputFile.FileHeader header = (OutputFile.FileHeader)file.header();
 		/* Get my position for this source taskid. */
 		Integer position = null;
 		TaskID inputTaskID = header.owner().getTaskID();
+		System.out.println("@zhumeiqi_debug:read from "+inputTaskID);
 		synchronized (cursor) {
 			if (!cursor.containsKey(inputTaskID)) {
 				cursor.put(inputTaskID, -1);
@@ -136,7 +167,8 @@ public class FileWritable extends OutputFileWritable {
 		}
 
 		/* I'm the only one that should be updating this position. */
-		int pos = position.intValue() < 0 ? header.ids().first() : position.intValue(); 
+		int pos = position.intValue() < 0 ? header.ids().first() : position.intValue();
+		System.out.println("@zhumeiqi_read:read pos"+pos);
 		synchronized (position) {
 			if (header.ids().first() == pos) {
 				/* [NOTICE] The following singnal is not sent. */
@@ -151,6 +183,7 @@ public class FileWritable extends OutputFileWritable {
 				}
 				position = header.ids().last() + 1;
 				LOG.debug("File handler " + " done receiving up to position " + position.intValue());
+				System.out.print("@zhumeiqi_read:read over");
 			}
 			else {
 				LOG.debug(this + " ignoring -- " + header);

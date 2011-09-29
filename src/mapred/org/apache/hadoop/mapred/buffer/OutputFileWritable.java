@@ -25,11 +25,19 @@ import org.stanzax.quatrain.io.ChannelWritable;
  */
 public abstract class OutputFileWritable implements ChannelWritable {
 
+	public int getPartition() {
+		return partition;
+	}
+
+	public void setPartition(int partition) {
+		this.partition = partition;
+	}
+
 	private static final Log LOG = LogFactory.getLog(
 			OutputFileWritable.class.getName());
 	
 	protected OutputFile file;
-	protected JobConf conf;
+//	protected JobConf conf;
 	
 	/**
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchange#Transfer
@@ -61,12 +69,10 @@ public abstract class OutputFileWritable implements ChannelWritable {
 	/**
 	 * Construct instance intended for write operation
 	 * */
-	protected OutputFileWritable(OutputFile file, FileSystem rfs, JobConf conf, BufferRequest request) {
+	protected OutputFileWritable(OutputFile file, FileSystem rfs, JobConf conf) {
 		this.file = file;
 		this.rfs = rfs;
-		this.conf = conf;
-		this.destination = request.destination();
-		this.partition = request.partition();
+		//this.conf = conf;
 	}
 	
 	/**
@@ -86,6 +92,7 @@ public abstract class OutputFileWritable implements ChannelWritable {
 			file.open(rfs);
 		} catch (IOException e) {
 			/* We don't want to send anymore of this output! */
+			System.out.print("@zhumeiqi_debug:"+e.getClass().toString()+e.getMessage());
 			return BufferExchange.Transfer.TERMINATE;
 		}
 

@@ -61,8 +61,6 @@ import org.apache.hadoop.util.QuickSort;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.stanzax.quatrain.client.MrClient;
 import org.stanzax.quatrain.client.ReplySet;
-import org.stanzax.quatrain.hadoop.HadoopWrapper;
-import org.stanzax.quatrain.hadoop.IntWritable;
 
 public class JOutputBuffer<K extends Object, V extends Object> 
        extends Buffer<K, V>

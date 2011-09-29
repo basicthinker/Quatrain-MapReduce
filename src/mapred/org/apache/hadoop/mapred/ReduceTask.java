@@ -44,7 +44,9 @@ import org.apache.hadoop.io.WritableFactory;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.buffer.BufferUmbilicalProtocol;
+import org.apache.hadoop.mapred.buffer.FileWritable;
 import org.apache.hadoop.mapred.buffer.OutputFile;
+import org.apache.hadoop.mapred.buffer.OutputFileWritable;
 import org.apache.hadoop.mapred.buffer.QuatrainManager;
 import org.apache.hadoop.mapred.buffer.impl.Buffer;
 import org.apache.hadoop.mapred.buffer.impl.JInputBuffer;
@@ -59,7 +61,6 @@ import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.stanzax.quatrain.client.MrClient;
 import org.stanzax.quatrain.client.ReplySet;
-import org.stanzax.quatrain.hadoop.HadoopWrapper;
 
 
 /** A Reduce task. */
@@ -74,11 +75,15 @@ public class ReduceTask extends Task {
 		private final  Progress progress;
 		private Map<TaskID, Float> inputProgress;
 		private float progressSum = 0f;
+		private Reporter reporter = null;
+		private Task task = null;
 		public Progress getProgress() {
 			return progress;
 		}
-		public MapOutputFileGeter(int inputCounts){
+		public MapOutputFileGeter(int inputCounts,Task task,Reporter reporter){
+			this.task = task;
 			this.inputCounts = inputCounts;
+			this.reporter = reporter;
 			this.progress = new Progress();
 		}
 		@Override
@@ -88,7 +93,7 @@ public class ReduceTask extends Task {
 			System.out.print("File Geter starts@zhumeiqi_reduce");
 			ReplySet reply = null;
 			
-				while (!this.isInterrupted()) {
+				while (true) {
 					try {
 						sleep(1000);
 					} catch (InterruptedException e) {
@@ -118,8 +123,14 @@ public class ReduceTask extends Task {
 						}
 					}
 				}
+				
+				if(this.totalCount==this.inputCounts)
+				{
+					break;
+				}
 			}
-
+				
+				
 		}
 		private void updateProgress(OutputFile.Header header) {
 			TaskID taskid = header.owner().getTaskID();
@@ -166,15 +177,20 @@ public class ReduceTask extends Task {
 		private Reporter reporter;
 		private MapOutputFileGeter getter = null;
 		private MrClient mrClient= null;
-
+		private InputCollector collector = null;
+		private Task task = null;
 		public MapOutputFetcher(TaskUmbilicalProtocol trackerUmbilical,
 				BufferUmbilicalProtocol bufferUmbilical, Reporter reporter,
-				BufferExchangeSink sink,MapOutputFileGeter getter) {
+				BufferExchangeSink sink,MapOutputFileGeter getter,
+				InputCollector collector,
+				Task task) {
 			this.trackerUmbilical = trackerUmbilical;
 			this.bufferUmbilical = bufferUmbilical;
 			this.reporter = reporter;
 			this.sink = sink;
 			this.getter = getter;
+			this.collector = collector;
+			this.task = task;
 		}
 
 		public void run() {
@@ -226,18 +242,30 @@ public class ReduceTask extends Task {
 							if (!mapTasks.contains(mapTaskId)) {
 								
 								mrClient = new MrClient(InetAddress.getByName(host),QuatrainManager.getServerAddress(conf).getPort(),
-					                    5000,conf);
+					                    	2000,conf);
 								
 								/*
 								 * 
 								 * 为每一个 
 								 */
-								ReplySet reply = mrClient.invoke(DoubleWritable.class, "requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
+								//public FileWritable(OutputFile file, JobConf conf, InputCollector<?, ?> collector, Task task) {
+								OutputFileWritable inFile = new FileWritable(new OutputFile(),conf,collector,task);
+								ReplySet reply;
+								try {
+									//reply = mrClient.invoke(inFile,"requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
+									reply = mrClient.invoke(inFile,"requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
+									getter.addReplySet(reply);
+									LOG.info("Add host info@zhumeiqi_reduce");
+								} catch (Exception e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+									System.out.println("@zhumeiqi_debug:all invoke failure");
+								}
 								/*
 								 *传递自己的attempt_id 和map的attemptid
 								 */
-								getter.addReplySet(reply);
-								LOG.info("Add host info@zhumeiqi_reduce");
+								
+							
 								
 								BufferExchange.BufferType type = BufferExchange.BufferType.FILE;
 								if (inputSnapshots)
@@ -467,11 +495,11 @@ public class ReduceTask extends Task {
 
 		BufferExchangeSink sink = new BufferExchangeSink(job, inputCollector,
 				this);
-		MapOutputFileGeter getter = new MapOutputFileGeter(this.getNumberOfInputs());
+		MapOutputFileGeter getter = new MapOutputFileGeter(this.getNumberOfInputs(),this,reporter);
 
 		MapOutputFetcher fetcher = new MapOutputFetcher(umbilical,
-				bufferUmbilical, reporter, sink,getter);
-		getter.start();
+				bufferUmbilical, reporter, sink,getter,inputCollector,this);
+		//getter.start();
 		
 		fetcher.setPartition(super.getPartition());
 		fetcher.setDaemon(true);
@@ -483,7 +511,8 @@ public class ReduceTask extends Task {
 		if (stream) {
 			stream(job, inputCollector, sink, reporter, bufferUmbilical);
 		} else {
-			copy(job, inputCollector, sink, reporter, bufferUmbilical,getter);
+		//	copy(job, inputCollector, sink, reporter, bufferUmbilical,getter);
+			getter.run();
 		}
 		fetcher.interrupt();
 		getter.interrupt();
