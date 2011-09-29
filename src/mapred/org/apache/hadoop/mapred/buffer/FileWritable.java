@@ -118,9 +118,13 @@ public class FileWritable extends OutputFileWritable {
 
 	@Override
 	public long read(SocketChannel channel) throws IOException {
-		OutputFile.FileHeader header = (OutputFile.FileHeader)file.header();
+		//OutputFile.FileHeader.readHeader(in)
+		
 		DataInputStream istream = new DataInputStream(channel.socket().getInputStream());
 		
+		file.setHeader(OutputFile.FileHeader.readHeader(istream));
+		
+		OutputFile.FileHeader header = (OutputFile.FileHeader)file.header();
 		/* Get my position for this source taskid. */
 		Integer position = null;
 		TaskID inputTaskID = header.owner().getTaskID();

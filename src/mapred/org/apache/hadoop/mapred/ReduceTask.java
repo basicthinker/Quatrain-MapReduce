@@ -36,6 +36,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableFactories;
 import org.apache.hadoop.io.WritableFactory;
@@ -224,14 +226,13 @@ public class ReduceTask extends Task {
 							if (!mapTasks.contains(mapTaskId)) {
 								
 								mrClient = new MrClient(InetAddress.getByName(host),QuatrainManager.getServerAddress(conf).getPort(),
-										new HadoopWrapper(), 
-					                    5000);
+					                    5000,conf);
 								
 								/*
 								 * 
 								 * 为每一个 
 								 */
-								ReplySet reply = mrClient.invoke(Double.class, "requestFile",getTaskID(),mapTaskId,getPartition());
+								ReplySet reply = mrClient.invoke(DoubleWritable.class, "requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
 								/*
 								 *传递自己的attempt_id 和map的attemptid
 								 */
@@ -617,8 +618,7 @@ public class ReduceTask extends Task {
 		 * add by zhumeiqi@2011.9.9
 		 */
 		InetSocketAddress mcAddress = QuatrainManager.getServerAddress(conf);
-		mrClient = new MrClient(mcAddress.getAddress(), mcAddress.getPort(),
-				new HadoopWrapper(), 500000);
+		mrClient = new MrClient(mcAddress.getAddress(), mcAddress.getPort(), 500000,conf);
 		if (reducePipeline) {
 			inputCollector.flush();
 			if (outputBuffer == null) {

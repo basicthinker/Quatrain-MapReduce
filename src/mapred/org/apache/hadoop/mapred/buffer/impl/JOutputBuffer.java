@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataInputBuffer;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.serializer.Deserializer;
 import org.apache.hadoop.io.serializer.SerializationFactory;
@@ -61,6 +62,7 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.stanzax.quatrain.client.MrClient;
 import org.stanzax.quatrain.client.ReplySet;
 import org.stanzax.quatrain.hadoop.HadoopWrapper;
+import org.stanzax.quatrain.hadoop.IntWritable;
 
 public class JOutputBuffer<K extends Object, V extends Object> 
        extends Buffer<K, V>
@@ -389,8 +391,8 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				/*
 				 * @zhumeiqi
 				 */
-				LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"pipline @zhumeiqi");
-				ReplySet records  = mrUmbilical.invoke(Double.class, "output",task.getTaskID(),file);
+		//		LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"pipline @zhumeiqi");
+				ReplySet records  = mrUmbilical.invoke(DoubleWritable.class, "output",task.getTaskID(),file);
 				Object ret=null;
 				while((ret = records.nextElement()) != null)
 				{
@@ -413,9 +415,9 @@ public class JOutputBuffer<K extends Object, V extends Object>
 					/*
 					 * @zhumeiqi
 					 */
+				//	FileWritable filTrans = new FileWritable(file);
 					
-					
-					ReplySet records = mrUmbilical.invoke(Double.class, "output",task.getTaskID(),file);
+					ReplySet records = mrUmbilical.invoke(DoubleWritable.class, "output",task.getTaskID(),file);
 					Object ret=null;
 					while((ret = records.nextElement()) != null)
 					{
@@ -473,7 +475,7 @@ public class JOutputBuffer<K extends Object, V extends Object>
 						}
 					}
 				}
-				ReplySet records= mrUmbilical.invoke(Double.class,"finish",task.getTaskID());
+				ReplySet records= mrUmbilical.invoke(DoubleWritable.class,"finish",task.getTaskID());
 				Object ret=null;
 				while((ret = records.nextElement()) != null)
 				{
@@ -482,7 +484,7 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				}
 				
 				
-				LOG.info(JOutputBuffer.this.taskid+"@zhumeiqi文件输出结束");
+				LOG.info(JOutputBuffer.this.taskid+"@zhumeiqi_fileOver");
 			} finally {
 				synchronized (spillLock) {
 					open  = false;
@@ -642,7 +644,7 @@ public class JOutputBuffer<K extends Object, V extends Object>
 		 * add zhumeiqi@2011.9.9
 		 */
 		InetSocketAddress mrAddress = QuatrainManager.getServerAddress(conf);
-		this.mrUmbilical = new MrClient(mrAddress.getAddress(),mrAddress.getPort(),new HadoopWrapper(),5000);
+		this.mrUmbilical = new MrClient(mrAddress.getAddress(),mrAddress.getPort(),5000,conf);
 		LOG.info("Quatrain Manager Address:"+mrAddress.toString());
 		
 		this.taskid = task.getTaskID();

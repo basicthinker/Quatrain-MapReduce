@@ -370,6 +370,10 @@ public class OutputFile implements Comparable<OutputFile>, Writable {
 		this.partitions = partitions;
 	}
 
+	public void setHeader(Header header) {
+		this.header = header;
+	}
+
 	public OutputFile(TaskAttemptID owner, SortedSet<Integer> idlist, float progress, Path data, Path index, boolean complete, int partitions) {
 		this.type = Type.FILE;
 		this.data     = data;
