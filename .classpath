@@ -65,5 +65,6 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/jol.jar"/>
 	<classpathentry kind="lib" path="lib/quatrain-hadoop.jar" sourcepath="/home/zhumeiqi/workspace/Quatrain"/>
+	<classpathentry kind="lib" path="/home/zhumeiqi/git/Quatrain-MapReduce/lib/quatrain-hadoop.jar"/>
 	<classpathentry kind="output" path="eclipse"/>
 </classpath>

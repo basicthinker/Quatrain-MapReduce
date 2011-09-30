@@ -33,7 +33,6 @@
 
   <property name="src.dir" value="${basedir}/src"/>  	
   <property name="core.src.dir" value="${src.dir}/core"/>
-  <property name="quatrin.src.dir" value="${src.dir}/quatrain}"/>
   <property name="mapred.src.dir" value="${src.dir}/mapred"/> 
   <property name="hdfs.src.dir" value="${src.dir}/hdfs"/>
   <property name="native.src.dir" value="${basedir}/src/native"/>

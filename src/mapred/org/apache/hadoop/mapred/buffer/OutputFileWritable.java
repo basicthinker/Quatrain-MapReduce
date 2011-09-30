@@ -17,13 +17,13 @@ import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.buffer.OutputFile.Header;
 import org.apache.hadoop.mapred.buffer.net.BufferExchange;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
-import org.stanzax.quatrain.io.ChannelWritable;
+import org.stanzax.quatrain.io.DirectWritable;
 
 /**
  * @author Jinglei Ren
  *
  */
-public abstract class OutputFileWritable implements ChannelWritable {
+public abstract class OutputFileWritable implements DirectWritable {
 
 	public int getPartition() {
 		return partition;
@@ -163,16 +163,5 @@ public abstract class OutputFileWritable implements ChannelWritable {
 	
 	private Header value;
 	
-	/* (non-Javadoc)
-	 * @see org.stanzax.quatrain.io.ChannelWritable#write(java.nio.channels.SocketChannel)
-	 */
-	@Override
-	public abstract long write(SocketChannel channel) throws IOException;
-
-	/* (non-Javadoc)
-	 * @see org.stanzax.quatrain.io.ChannelWritable#read(java.nio.channels.SocketChannel)
-	 */
-	@Override
-	public abstract long read(SocketChannel channel) throws IOException;
 
 }
