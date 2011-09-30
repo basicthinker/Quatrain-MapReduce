@@ -27,6 +27,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +86,7 @@ public class ReduceTask extends Task {
 			this.inputCounts = inputCounts;
 			this.reporter = reporter;
 			this.progress = new Progress();
+			this.inputProgress = new HashMap<TaskID, Float>();
 		}
 		@Override
 		public void run() {
@@ -105,16 +107,11 @@ public class ReduceTask extends Task {
 						System.out.println("@zhumeiqi_info");
 						reply = replySets.get(i);
 						if (reply.hasMore()) {
-							System.out.println("@zhumeiqi_has_more");
 							if (reply.isReady()) {
-								System.out.print("@zhumeiqi_is_ready");
-								// add code to get file from server
-								System.out.println("Get File back"+i+"@zhumeiqi_reduce");
 								Object o = reply.nextElement();
 								//the reply of the request is outputFileHeader
 								updateProgress((OutputFile.Header)o);
-								if(o!=null)
-								LOG.info("reducer get:"+o.toString());
+								
 							}
 						} else {
 							replySets.remove(i);
@@ -123,14 +120,11 @@ public class ReduceTask extends Task {
 						}
 					}
 				}
-				
 				if(this.totalCount==this.inputCounts)
 				{
 					break;
 				}
-			}
-				
-				
+			}		
 		}
 		private void updateProgress(OutputFile.Header header) {
 			TaskID taskid = header.owner().getTaskID();
@@ -242,7 +236,7 @@ public class ReduceTask extends Task {
 							if (!mapTasks.contains(mapTaskId)) {
 								
 								mrClient = new MrClient(InetAddress.getByName(host),QuatrainManager.getServerAddress(conf).getPort(),
-					                    	2000,conf);
+					                    	200000000,conf);
 								
 								/*
 								 * 
@@ -256,6 +250,7 @@ public class ReduceTask extends Task {
 									reply = mrClient.invoke(inFile,"requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
 									getter.addReplySet(reply);
 									LOG.info("Add host info@zhumeiqi_reduce");
+									mapTasks.add(mapTaskId);
 								} catch (Exception e1) {
 									// TODO Auto-generated catch block
 									e1.printStackTrace();
@@ -266,7 +261,7 @@ public class ReduceTask extends Task {
 								 */
 								
 							
-								
+								/*
 								BufferExchange.BufferType type = BufferExchange.BufferType.FILE;
 								if (inputSnapshots)
 									type = BufferExchange.BufferType.SNAPSHOT;
@@ -293,6 +288,7 @@ public class ReduceTask extends Task {
 											.warn("BufferUmbilical problem in taking request "
 													+ request + ". " + e);
 								}
+								*/
 							}
 						}
 							break;
@@ -511,7 +507,7 @@ public class ReduceTask extends Task {
 		if (stream) {
 			stream(job, inputCollector, sink, reporter, bufferUmbilical);
 		} else {
-		//	copy(job, inputCollector, sink, reporter, bufferUmbilical,getter);
+			//copy(job, inputCollector, sink, reporter, bufferUmbilical,getter);
 			getter.run();
 		}
 		fetcher.interrupt();

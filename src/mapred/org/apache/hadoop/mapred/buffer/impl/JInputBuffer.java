@@ -546,6 +546,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 	@Override
 	public synchronized boolean read(DataInputStream istream, OutputFile.Header header)
 	throws IOException {
+		System.out.print("@zhumeiqi_debug:Read in collector");
 		TaskID taskid = header.owner().getTaskID();
 		long compressedLength = header.compressed();
 		long decompressedLength = header.decompressed();
@@ -570,6 +571,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 			shuffleInMemory(taskid, istream,
 					(int)decompressedLength,
 					(int)compressedLength)) {
+			
 			LOG.info("Shuffeled " + decompressedLength + " bytes (" + 
 					compressedLength + " raw bytes) " + 
 					"into RAM from " + taskid);
@@ -597,7 +599,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 		if (!createdNow) {
 			return false;
 		}
-
+		
 		IFileInputStream checksumIn = new IFileInputStream(ins, compressedLength);
 		ins = checksumIn;       
 
@@ -607,7 +609,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 			ins = codec.createInputStream(ins, decompressor);
 		}
 
-		LOG.debug("JBufferInput: copy compressed " + compressedLength + 
+		System.out.print("@zhumeiqi_debug,JBufferInput: copy compressed " + compressedLength + 
 				" (decompressed " + decompressedLength + ") bytes from map " + taskid);
 		// Copy map-output into an in-memory buffer
 		byte[] shuffleData = new byte[decompressedLength];
@@ -644,7 +646,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 			input = null;
 
 			// Close the streams
-			IOUtils.cleanup(LOG, ins);
+		//	IOUtils.cleanup(LOG, ins);
 
 			// Re-throw
 			throw ioe;
@@ -731,7 +733,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 			input = null;
 
 			// Close the streams
-			IOUtils.cleanup(LOG, ins, outs);
+			//IOUtils.cleanup(LOG, ins, outs);
 
 			// Re-throw
 			throw ioe;

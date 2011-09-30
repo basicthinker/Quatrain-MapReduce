@@ -4,6 +4,8 @@
 package org.apache.hadoop.mapred.buffer;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.channels.SocketChannel;
 
 import org.apache.hadoop.fs.FileSystem;
@@ -17,7 +19,7 @@ import org.apache.hadoop.mapred.buffer.net.BufferRequest;
 public class StreamWritable extends OutputFileWritable {
 
 	protected StreamWritable(OutputFile file, FileSystem rfs, JobConf conf, BufferRequest request) {
-		super(file, rfs, conf, request);
+		super(file, rfs, conf);
 		// TODO Auto-generated constructor stub
 	}
 
@@ -25,7 +27,7 @@ public class StreamWritable extends OutputFileWritable {
 	 * @see org.apache.hadoop.mapred.buffer.OutputFileWritable#write(java.nio.channels.SocketChannel)
 	 */
 	@Override
-	public long write(SocketChannel channel) throws IOException {
+	public long write(OutputStream ostream) throws IOException {
 		// TODO Auto-generated method stub
 		return 0;
 	}
@@ -34,7 +36,7 @@ public class StreamWritable extends OutputFileWritable {
 	 * @see org.apache.hadoop.mapred.buffer.OutputFileWritable#read(java.nio.channels.SocketChannel)
 	 */
 	@Override
-	public long read(SocketChannel channel) throws IOException {
+	public long read(InputStream istream) throws IOException {
 		// TODO Auto-generated method stub
 		return 0;
 	}

@@ -92,23 +92,19 @@ public abstract class OutputFileWritable implements DirectWritable {
 			file.open(rfs);
 		} catch (IOException e) {
 			/* We don't want to send anymore of this output! */
-			System.out.print("@zhumeiqi_debug:"+e.getClass().toString()+e.getMessage());
 			return BufferExchange.Transfer.TERMINATE;
 		}
 
 		try {
-			ostream.writeInt(Integer.MAX_VALUE); // Sending something
+		//	ostream.writeInt(Integer.MAX_VALUE); // Sending something
 			OutputFile.Header header = file.seek(partition);
 
 			OutputFile.Header.writeHeader(ostream, header);
 			ostream.flush();
 
-			/* [NOTICE] */
-		//	BufferExchange.Transfer response = WritableUtils.readEnum(istream, BufferExchange.Transfer.class);
-		//	if (BufferExchange.Transfer.READY == response) {
-				LOG.debug(this + " sending " + header);
-				write(header, file.dataInputStream(), ostream);
-				return BufferExchange.Transfer.SUCCESS;
+			LOG.debug(this + " sending " + header);
+			write(header, file.dataInputStream(), ostream);
+			return BufferExchange.Transfer.SUCCESS;
 		//	}
 		//	return response;
 		} catch (IOException e) {
