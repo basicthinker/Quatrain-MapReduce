@@ -104,24 +104,26 @@ public class ReduceTask extends Task {
 					}
 					synchronized (replySets) {
 					for (int i = 0; i < replySets.size(); i++) {
-						System.out.println("@zhumeiqi_info");
+					//	System.out.println("@zhumeiqi_info");
 						reply = replySets.get(i);
 						if (reply.hasMore()) {
 							if (reply.isReady()) {
-								Object o = reply.nextElement();
+								OutputFile.Header o = (OutputFile.Header)reply.nextElement();
+								System.out.println("@zhumeiqi_reduce:Get file From"+o.owner());
 								//the reply of the request is outputFileHeader
-								updateProgress((OutputFile.Header)o);
-								
+								updateProgress((OutputFile.Header)o);	
 							}
 						} else {
 							replySets.remove(i);
-							System.out.println("@zhumeiqi_remove");
+							System.out.println("@zhumeiqi_reduce:Remove an task");
+							System.out.println("@zhumeiqi_reduce:finished task Size:"+this.totalCount+"required:"+this.inputCounts);
 							this.totalCount++;
 						}
 					}
 				}
 				if(this.totalCount==this.inputCounts)
 				{
+					System.out.println("@zhumeiqi_debug:finish exe getter run");
 					break;
 				}
 			}		
@@ -143,7 +145,7 @@ public class ReduceTask extends Task {
 				LOG.info("Task " + taskid + " total copy progress = " + (progressSum / (float) this.inputCounts));
 				this.progress.set(progressSum / (float) this.inputCounts);
 			}
-			LOG.info("Task " + taskid + " total sink progress = " + progress.get());
+			LOG.info("Task " + taskid + " total getter progress = " + progress.get());
 		}
 		
 		public void addReplySet(ReplySet reply){
@@ -249,7 +251,7 @@ public class ReduceTask extends Task {
 									//reply = mrClient.invoke(inFile,"requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
 									reply = mrClient.invoke(inFile,"requestFile",getTaskID(),mapTaskId,new IntWritable(getPartition()));
 									getter.addReplySet(reply);
-									LOG.info("Add host info@zhumeiqi_reduce");
+									LOG.info("Add host info@zhumeiqi_reduce"+getTaskID());
 									mapTasks.add(mapTaskId);
 								} catch (Exception e1) {
 									// TODO Auto-generated catch block
@@ -437,7 +439,7 @@ public class ReduceTask extends Task {
 	@Override
 	@SuppressWarnings("unchecked")
 	public void run(JobConf job, final TaskUmbilicalProtocol umbilical,
-			final BufferUmbilicalProtocol bufferUmbilical) throws IOException {
+			final BufferUmbilicalProtocol bufferUmbilical,MrClient mrClient) throws IOException {
 		// start thread that will handle communication with parent
 		startCommunicationThread(umbilical);
 
@@ -512,7 +514,7 @@ public class ReduceTask extends Task {
 		}
 		fetcher.interrupt();
 		getter.interrupt();
-
+		System.out.print("@zhumeiqi_debug:Start Reduce");
 		long begin = System.currentTimeMillis();
 		try {
 			setPhase(TaskStatus.Phase.REDUCE);
@@ -650,7 +652,7 @@ public class ReduceTask extends Task {
 				Progress progress = snapshot ? inputProgress : reducePhase;
 				outputBuffer = new JOutputBuffer(umbilical, this, job,
 						reporter, progress, false, outputKeyClass,
-						outputValClass, codecClass);
+						outputValClass, codecClass,mrClient);
 			} else {
 				outputBuffer.malloc();
 			}

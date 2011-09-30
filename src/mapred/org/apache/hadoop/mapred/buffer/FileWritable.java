@@ -62,102 +62,58 @@ public class FileWritable extends OutputFileWritable {
 	@Override
 	public long write(OutputStream Ostream) throws IOException {
 
-		System.out.print("@zhumeiqi_debug:Call write");
+		System.out.print("@zhumeiqi_debug:Call write partition"
+				+ this.partition);
 		OutputFile.FileHeader header = (OutputFile.FileHeader) file.header();
 		TaskID taskid = header.owner().getTaskID();
-		if (!cursor.containsKey(taskid)
-				|| cursor.get(taskid) == header.ids().first()) {
-			/*
-			 * add @zhumeiqi ,the WritableUtils.only accept DataOutputStream
-			 */
-			DataOutputStream ostream = new DataOutputStream(Ostream);
-			LOG.debug("Transfer file " + file + ". Destination " + destination);
-			Transfer response = transmit(ostream);
-
-			if (response == Transfer.TERMINATE) {
-				return OutputFileWritable.TERMINATE;
-			}
-			int position = header.ids().last() + 1;
-			
-
-			if (response == Transfer.SUCCESS) {
-				if (header.eof()) {
-					LOG.debug("Transfer end of file for source task " + taskid);
-					// close(); // Quatrain takes charge of closing sockets.
-					ostream.writeInt(0); // [NOTICE] Taken from method close().
-				}
-				cursor.put(taskid, position);
-				LOG.debug("Transfer complete. New position "
-						+ cursor.get(taskid) + ". Destination " + destination);
-				return OutputFileWritable.SUCCESS;
-			} else {
-				LOG.debug("Unsuccessful send. Transfer response: " + response);
-				return OutputFileWritable.ERROR;
-			}
-		} else {
-			return OutputFileWritable.RETRY;
+		DataOutputStream ostream = new DataOutputStream(Ostream);
+		LOG.debug("Transfer file " + file + ". Destination " + destination);
+		Transfer response = transmit(ostream);
+		if (response == Transfer.TERMINATE) {
+			return OutputFileWritable.TERMINATE;
 		}
-		
+		int position = header.ids().last() + 1;
+
+		if (response == Transfer.SUCCESS) {
+			if (header.eof()) {
+				LOG.debug("Transfer end of file for source task " + taskid);
+				ostream.writeInt(0); // [NOTICE] Taken from method close().
+			}
+			cursor.put(taskid, position);
+			LOG.debug("Transfer complete. New position " + cursor.get(taskid)
+					+ ". Destination " + destination);
+			System.out.println("@zhumeiqi_debug:finish partition"
+					+ this.partition);
+			return OutputFileWritable.SUCCESS;
+		} else {
+			LOG.debug("Unsuccessful send. Transfer response: " + response);
+			return OutputFileWritable.ERROR;
+		}
 	}
 
 	@Override
 	public long read(InputStream instream) throws IOException {
 
 		// OutputFile.FileHeader.readHeader(in)
-	
+
 		DataInputStream istream = null;
 		istream = new DataInputStream(instream);
-		//WritableUtils.readEnum(istream, BufferExchange.BufferType.class);
+		// WritableUtils.readEnum(istream, BufferExchange.BufferType.class);
 		file.setHeader(OutputFile.FileHeader.readHeader(istream));
 		OutputFile.FileHeader header = (OutputFile.FileHeader) file.header();
-		
+		System.out.print("@zhumeiqi_debug:Call read");
 		/* Get my position for this source taskid. */
 		Integer position = null;
 		TaskID inputTaskID = header.owner().getTaskID();
-/*		synchronized (cursor) {
-			if (!cursor.containsKey(inputTaskID)) {
-				cursor.put(inputTaskID, -1);
-			}
-			position = cursor.get(inputTaskID);
-			
-			
-		}
-
-		/* I'm the only one that should be updating this position. */
-	/*	int pos = position.intValue() < 0 ? header.ids().first() : position
-				.intValue();
-		
-		synchronized (position) {
-			if (header.ids().first() == pos) {
-		*/		/* [NOTICE] The following singnal is not sent. */
-				// WritableUtils.writeEnum(ostream,
-				// BufferExchange.Transfer.READY);
-				// ostream.flush();
-			/*	LOG.debug("File handler " + hashCode()
-						+ " ready to receive -- " + header);
-				*/if (collector.read(istream, header)) {
-					// updateProgress(header);
-					this.setValue(header);
-					System.out.print("@zhumeiqi_debug:readOK");
-					synchronized (task) {
-						task.notifyAll();
-					}
-				}
-				if(header.eof())
-				{
-					istream.readInt();
-				}
-/*				position = header.ids().last() + 1;
-				LOG.debug("File handler " + " done receiving up to position "
-						+ position.intValue());
-				System.out.print("@zhumeiqi_read:read over");
-			} else {
-				LOG.debug(this + " ignoring -- " + header);
+		if (collector.read(istream, header)) {
+			this.setValue(header);
+			synchronized (task) {
+				task.notifyAll();
 			}
 		}
-
-		pos = position.intValue();
-*/
+		if (header.eof()) {
+			istream.readInt();
+		}
 		return 0;
 	}
 

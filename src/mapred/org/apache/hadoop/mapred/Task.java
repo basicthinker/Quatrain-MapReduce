@@ -50,6 +50,7 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
+import org.stanzax.quatrain.client.MrClient;
 
 /** Base class for tasks. */
 public abstract class Task implements Writable, Configurable {
@@ -346,7 +347,7 @@ public abstract class Task implements Writable, Configurable {
    * child process and is what invokes user-supplied map, reduce, etc. methods.
    * @param umbilical for progress reports
    */
-  public abstract void run(JobConf job, TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical)
+  public abstract void run(JobConf job, TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical,MrClient mrUmbilical)
     throws IOException;
 
 

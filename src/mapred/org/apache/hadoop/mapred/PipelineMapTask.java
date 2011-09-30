@@ -47,6 +47,7 @@ import org.apache.hadoop.mapred.buffer.net.BufferExchangeSink;
 import org.apache.hadoop.mapred.buffer.net.ReduceBufferRequest;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.stanzax.quatrain.client.MrClient;
 
 public class PipelineMapTask extends MapTask implements InputCollector {
 	  private static final Log LOG = LogFactory.getLog(PipelineMapTask.class.getName());
@@ -187,7 +188,7 @@ public class PipelineMapTask extends MapTask implements InputCollector {
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical)
+	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical,MrClient mrClient)
 	throws IOException {
 		this.reporter = getReporter(umbilical);
 		this.bufferUmbilical = bufferUmbilical;
@@ -298,7 +299,7 @@ public class PipelineMapTask extends MapTask implements InputCollector {
 		    Class outputValClass = conf.getMapOutputValueClass();
 			this.buffer = new JOutputBuffer(bufferUmbilical, this, conf, reporter, 
 											getProgress(), false, 
-						                    outputKeyClass, outputValClass, codecClass);
+						                    outputKeyClass, outputValClass, codecClass,null);
 		} else {
 			this.buffer.malloc();
 		}

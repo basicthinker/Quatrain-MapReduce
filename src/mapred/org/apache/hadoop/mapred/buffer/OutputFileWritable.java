@@ -88,6 +88,7 @@ public abstract class OutputFileWritable implements DirectWritable {
 	 * @see org.apache.hadoop.mapred.buffer.net.BufferExchangeSource#transmit(OutputFile file)
 	 * */
 	protected BufferExchange.Transfer transmit(DataOutputStream ostream) {
+		System.out.println("@zhumeiqi_debug:write partition"+this.partition);
 		try {
 			file.open(rfs);
 		} catch (IOException e) {
@@ -100,6 +101,7 @@ public abstract class OutputFileWritable implements DirectWritable {
 			OutputFile.Header header = file.seek(partition);
 
 			OutputFile.Header.writeHeader(ostream, header);
+			
 			ostream.flush();
 
 			LOG.debug(this + " sending " + header);

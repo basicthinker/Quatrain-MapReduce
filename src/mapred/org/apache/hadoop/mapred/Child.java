@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
 import org.apache.commons.logging.Log;
@@ -35,10 +36,12 @@ import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.mapred.JvmTask;
 import org.apache.hadoop.mapred.buffer.BufferUmbilicalProtocol;
 import org.apache.hadoop.mapred.buffer.Manager;
+import org.apache.hadoop.mapred.buffer.QuatrainManager;
 import org.apache.hadoop.metrics.MetricsContext;
 import org.apache.hadoop.metrics.MetricsUtil;
 import org.apache.hadoop.metrics.jvm.JvmMetrics;
 import org.apache.log4j.LogManager;
+import org.stanzax.quatrain.client.MrClient;
 
 /** 
  * The main() for child processes. 
@@ -71,6 +74,7 @@ class Child {
           defaultConf);
     
 	BufferUmbilicalProtocol bufferUmbilical = null;
+	MrClient mrUmbilical = null;
 	
 	int attempts = 5;
 	while (bufferUmbilical == null) {
@@ -87,6 +91,9 @@ class Child {
 			}
 		}
 	}
+	
+	mrUmbilical = new MrClient(QuatrainManager.getServerAddress(defaultConf).getAddress(),QuatrainManager.getServerAddress(defaultConf).getPort(),
+        	200000000,defaultConf);
 	
     int numTasksToExecute = -1; //-1 signifies "no limit"
     int numTasksExecuted = 0;
@@ -177,7 +184,7 @@ class Child {
         // use job-specified working directory
         FileSystem.get(job).setWorkingDirectory(job.getWorkingDirectory());
         try {
-          task.run(job, umbilical, bufferUmbilical);             // run the task
+          task.run(job, umbilical, bufferUmbilical,mrUmbilical);             // run the task
         } finally {
           TaskLog.syncLogs(firstTaskid, taskid, isCleanup);
           if (!taskid.equals(firstTaskid) && 

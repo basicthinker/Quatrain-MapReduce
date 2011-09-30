@@ -30,6 +30,7 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -49,6 +50,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataInputBuffer;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -61,6 +63,7 @@ import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.TaskCompletionEvent.Status;
 import org.apache.hadoop.mapred.buffer.BufferUmbilicalProtocol;
 import org.apache.hadoop.mapred.buffer.OutputFile;
+import org.apache.hadoop.mapred.buffer.QuatrainManager;
 import org.apache.hadoop.mapred.buffer.impl.Buffer;
 import org.apache.hadoop.mapred.buffer.impl.JOutputBuffer;
 import org.apache.hadoop.mapred.buffer.net.BufferRequest;
@@ -70,6 +73,7 @@ import org.apache.hadoop.util.IndexedSorter;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.QuickSort;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.stanzax.quatrain.client.MrClient;
 
 /** A Map task. */
 public class MapTask extends Task {
@@ -202,9 +206,8 @@ public class MapTask extends Task {
 		super.setProgress(progress);
 	}
 
-	@Override
 	@SuppressWarnings("unchecked")
-	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical)
+	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical,final MrClient mrUmbilical)
 	throws IOException {
 		final Reporter reporter = getReporter(umbilical);
 	    // start thread that will handle communication with parent
@@ -244,7 +247,7 @@ public class MapTask extends Task {
 				codecClass = conf.getMapOutputCompressorClass(DefaultCodec.class);
 			}
 			JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this, job, 
-					reporter, getProgress(), false, keyClass, valClass, codecClass);
+					reporter, getProgress(), false, keyClass, valClass, codecClass,mrUmbilical);
 			
 			RecordReader rawIn =                  // open input
 				job.getInputFormat().getRecordReader(instantiatedSplit, job, reporter);
@@ -274,7 +277,7 @@ public class MapTask extends Task {
 				}
 				JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this, job, 
 						reporter, getProgress(), pipeline, 
-						keyClass, valClass, codecClass);
+						keyClass, valClass, codecClass,mrUmbilical);
 				collector = buffer;
 			} else { 
 				collector = new DirectMapOutputCollector(umbilical, job, reporter);
@@ -322,6 +325,8 @@ public class MapTask extends Task {
 					if (finalOut != null) {
 						LOG.debug("Register final output");
 						bufferUmbilical.output(finalOut);
+						mrUmbilical.invoke(DoubleWritable.class, "output",finalOut.header().owner(),finalOut);
+						
 					}
 				}
 				else {

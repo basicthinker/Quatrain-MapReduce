@@ -484,7 +484,7 @@ public class TaskTracker
 	 * add zhumeiqi @2011.9.9
 	 */
     InetSocketAddress mrAddress = QuatrainManager.getServerAddress(fConf);
-    this.qManager = new QuatrainManager(mrAddress.getHostName(),mrAddress.getPort(),10,fConf,FileSystem.getLocal(fConf));
+    this.qManager = new QuatrainManager(mrAddress.getHostName(),mrAddress.getPort(),1000,fConf,FileSystem.getLocal(fConf));
     this.qManager.start();
     this.jvmManager = new JvmManager(this);
 

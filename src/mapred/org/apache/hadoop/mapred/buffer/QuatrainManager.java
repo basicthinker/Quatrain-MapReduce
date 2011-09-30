@@ -75,15 +75,16 @@ public class QuatrainManager extends MrServer {
 
 	public synchronized void output(TaskAttemptID mapID, OutputFile outputFile) {
 
-		synchronized(taskStatus){
+		System.out.append("@zhumeiqi_debug:call output");
+		synchronized (taskStatus) {
 			this.taskStatus.put(mapID, STATUS.UPDATED);
 		}
-		
+
 		// OutputFileWritable file = new OutputFileWritable(ouputFile);
 		JobID job = mapID.getJobID();
 		Set<TaskAttemptID> maps = new HashSet<TaskAttemptID>();
 		this.allTasks.putIfAbsent(job, maps);
-		
+
 		// this.files.putIfAbsent(mapID, new
 		// ArrayList<OutputFileWritable>());
 		maps = this.allTasks.get(job);
@@ -92,9 +93,9 @@ public class QuatrainManager extends MrServer {
 			if (!this.files.containsKey(mapID)) {
 				this.files.put(mapID, new ArrayList<OutputFileWritable>());
 			}
-		
+
 			ArrayList<OutputFileWritable> tmFils = this.files.get(mapID);
-		// outputFile.header().
+			// outputFile.header().
 			OutputFileWritable outfile = new FileWritable(outputFile, rfs, null);
 			tmFils.add(outfile);
 		}
@@ -104,21 +105,34 @@ public class QuatrainManager extends MrServer {
 
 	public void requestFile(TaskAttemptID redcueID, TaskAttemptID mapID,
 			IntWritable partition) {
+		System.out.println("@zhumeiqi_request FileCall requestFile from "+redcueID);
 		while (true) {
-			ArrayList<OutputFileWritable> src = new ArrayList<OutputFileWritable>();
+			ArrayList<OutputFileWritable> src = null;
 			synchronized (files) {
-				src=files.get(mapID);
+				src = files.get(mapID);
 			}
-			if(src==null) continue;
+			if (src == null) {
+		/*		try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}*/
+				continue;
+			}
 			int size = src.size();
 			for (int i = 0; i < size; i++) {
 				OutputFileWritable outPutfile = src.get(i);
-				OutputFile file = outPutfile.file;
-				synchronized (file) {
+				synchronized (outPutfile) {
+					OutputFile file = outPutfile.file;
 					if (!file.isServiced(redcueID)) {
+						System.out.println("@zhumeiqi_serve not served"+redcueID);
 						outPutfile.setPartition(partition.get());
 						preturn(outPutfile);
+						System.out.println("@zhumeiqi_requestFile Return file for"+redcueID+" from "+mapID);
 						file.serviced(redcueID);
+					}else{
+						//System.out.println("@zhumeiqi_requestFile served task"+redcueID);
 					}
 				}
 			}
@@ -126,7 +140,7 @@ public class QuatrainManager extends MrServer {
 				STATUS s = this.taskStatus.get(mapID);
 				if (s != null
 						&& (s.equals(STATUS.KILL) || s.equals(STATUS.SUCCESS))) {
-					this.taskStatus.remove(mapID);
+				//	this.taskStatus.remove(mapID);
 					break;
 				}
 			}

@@ -215,7 +215,7 @@ public class IsolationRunner {
       task = new ReduceTask(jobFilename.toString(), taskId, partition, numMaps);
     }
     task.setConf(conf);
-    task.run(conf, new FakeUmbilical(), null);
+    task.run(conf, new FakeUmbilical(), null,null);
   }
 
 }

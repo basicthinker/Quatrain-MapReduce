@@ -384,12 +384,13 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				OutputFile file = new OutputFile(taskid, nextPipelineSpill, spill.progress,
 						                        spill.data, spill.index, spill.eof, partitions);
 				LOG.info(JOutputBuffer.this.taskid + " pipelining " + file);
-				umbilical.output(file);
+		//		umbilical.output(file);
 				
 				/*
 				 * @zhumeiqi
 				 */
 		//		LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"pipline @zhumeiqi");
+				System.out.print("@zhumeiqi_debug:call invoke");
 				ReplySet records  = mrUmbilical.invoke(DoubleWritable.class, "output",task.getTaskID(),file);
 				Object ret=null;
 				while((ret = records.nextElement()) != null)
@@ -407,7 +408,7 @@ public class JOutputBuffer<K extends Object, V extends Object>
 				SortedSet<OutputFile> files = merger.mergeSpill(nextPipelineSpill, lastPipelineSpill);
 				for (OutputFile file : files) {
 					LOG.info(JOutputBuffer.this.taskid + " pipelining " + file);
-					umbilical.output(file);
+				//	umbilical.output(file);
 					LOG.info("Quatrain call output:"+JOutputBuffer.this.taskid+"@zhumeiqi");
 					
 					/*
@@ -633,17 +634,17 @@ public class JOutputBuffer<K extends Object, V extends Object>
 	public JOutputBuffer(BufferUmbilicalProtocol umbilical, Task task, JobConf job, 
 					Reporter reporter, Progress progress, boolean pipeline,
 			       Class<K> keyClass, Class<V> valClass, 
-			       Class<? extends CompressionCodec> codecClass) throws IOException {
+			       Class<? extends CompressionCodec> codecClass,
+			       MrClient mrUmbilical ) throws IOException {
 		
 		super(job, task, reporter, progress, keyClass, valClass, codecClass);
 		this.umbilical = umbilical;
+		this.mrUmbilical = mrUmbilical;
 		
 		/*
 		 * add zhumeiqi@2011.9.9
 		 */
-		InetSocketAddress mrAddress = QuatrainManager.getServerAddress(conf);
-		this.mrUmbilical = new MrClient(mrAddress.getAddress(),mrAddress.getPort(),5000,conf);
-		LOG.info("Quatrain Manager Address:"+mrAddress.toString());
+
 		
 		this.taskid = task.getTaskID();
 		this.job = job;
