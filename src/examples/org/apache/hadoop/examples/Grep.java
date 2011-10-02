@@ -58,6 +58,13 @@ public class Grep extends Configured implements Tool {
       if (args.length == 4)
         grepJob.set("mapred.mapper.regex.group", args[3]);
 
+      for(int i = 0;i<args.length;i++)
+      {
+    	  if ("-p".equals(args[i])) 
+    	  {
+    		  grepJob.setBoolean("mapred.map.pipeline", true);
+      	}
+      }
       grepJob.setCombinerClass(LongSumReducer.class);
       grepJob.setReducerClass(LongSumReducer.class);
 

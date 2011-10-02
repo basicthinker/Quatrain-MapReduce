@@ -474,16 +474,7 @@ public class JOutputBuffer<K extends Object, V extends Object>
 						}
 					}
 				}
-				ReplySet records= mrUmbilical.invoke(DoubleWritable.class,"finish",task.getTaskID());
-				Object ret=null;
-				while((ret = records.nextElement()) != null)
-				{
-					
-					LOG.info(task.getTaskID()+":report finish");
-				}
-				
-				
-				LOG.info(JOutputBuffer.this.taskid+"@zhumeiqi_fileOver");
+
 			} finally {
 				synchronized (spillLock) {
 					open  = false;

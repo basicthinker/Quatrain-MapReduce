@@ -609,7 +609,7 @@ extends Buffer<K, V> implements InputCollector<K, V> {
 			ins = codec.createInputStream(ins, decompressor);
 		}
 
-		System.out.print("@zhumeiqi_debug,JBufferInput: copy compressed " + compressedLength + 
+		System.out.println("@zhumeiqi_debug,JBufferInput: copy compressed " + compressedLength + 
 				" (decompressed " + decompressedLength + ") bytes from map " + taskid);
 		// Copy map-output into an in-memory buffer
 		byte[] shuffleData = new byte[decompressedLength];

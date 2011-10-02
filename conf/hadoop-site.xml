@@ -84,5 +84,9 @@
                sent across the network. Uses SequenceFile compression.
   </description>
 </property>
+<property>
+	<name>Quatrain.log.dir</name>
+	<value>/home/zhumeiqi/hadoop/log/</value>
+</property>
 
 </configuration>

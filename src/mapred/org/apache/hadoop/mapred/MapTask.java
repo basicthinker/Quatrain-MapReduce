@@ -74,16 +74,18 @@ import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.QuickSort;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.stanzax.quatrain.client.MrClient;
+import org.stanzax.quatrain.client.ReplySet;
 
 /** A Map task. */
 public class MapTask extends Task {
 	/**
 	 * The size of each record in the index file for the map-outputs.
 	 */
+	FSDataOutputStream dout = null;
 	public static final int MAP_OUTPUT_INDEX_RECORD_LENGTH = 24;
 
 	protected TrackedRecordReader recordReader = null;
-	
+
 	protected OutputCollector collector = null;
 
 	private BytesWritable split = new BytesWritable();
@@ -92,16 +94,16 @@ public class MapTask extends Task {
 
 	private static final Log LOG = LogFactory.getLog(MapTask.class.getName());
 
-	{   // set phase for this task
-		setPhase(TaskStatus.Phase.MAP); 
+	{ // set phase for this task
+		setPhase(TaskStatus.Phase.MAP);
 	}
 
 	public MapTask() {
 		super();
 	}
 
-	public MapTask(String jobFile, TaskAttemptID taskId, 
-			int partition, String splitClass, BytesWritable split) {
+	public MapTask(String jobFile, TaskAttemptID taskId, int partition,
+			String splitClass, BytesWritable split) {
 		super(jobFile, taskId, partition);
 		this.splitClass = splitClass;
 		this.split = split;
@@ -115,7 +117,7 @@ public class MapTask extends Task {
 	@Override
 	public void localizeConfiguration(JobConf conf) throws IOException {
 		super.localizeConfiguration(conf);
-		Path localSplit = new Path(new Path(getJobFile()).getParent(), 
+		Path localSplit = new Path(new Path(getJobFile()).getParent(),
 				"split.dta");
 		LOG.debug("Writing local split to " + localSplit);
 		DataOutputStream out = FileSystem.getLocal(conf).create(localSplit);
@@ -125,7 +127,8 @@ public class MapTask extends Task {
 	}
 
 	@Override
-	public TaskRunner createRunner(TaskTracker tracker, TaskTracker.TaskInProgress tip) {
+	public TaskRunner createRunner(TaskTracker tracker,
+			TaskTracker.TaskInProgress tip) {
 		return new MapTaskRunner(tip, tracker, this.conf);
 	}
 
@@ -133,7 +136,8 @@ public class MapTask extends Task {
 		write(out);
 	}
 
-	private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+	private void readObject(java.io.ObjectInputStream in) throws IOException,
+			ClassNotFoundException {
 		readFields(in);
 	}
 
@@ -141,8 +145,10 @@ public class MapTask extends Task {
 	public void write(DataOutput out) throws IOException {
 		super.write(out);
 		Text.writeString(out, splitClass);
-		if (split != null) split.write(out);
-		else throw new IOException("SPLIT IS NULL");
+		if (split != null)
+			split.write(out);
+		else
+			throw new IOException("SPLIT IS NULL");
 	}
 
 	@Override
@@ -158,18 +164,18 @@ public class MapTask extends Task {
 	}
 
 	/**
-	 * This class wraps the user's record reader to update the counters and progress
-	 * as records are read.
+	 * This class wraps the user's record reader to update the counters and
+	 * progress as records are read.
+	 * 
 	 * @param <K>
 	 * @param <V>
 	 */
-	class TrackedRecordReader<K, V> 
-	implements RecordReader<K,V> {
-		private RecordReader<K,V> rawIn;
+	class TrackedRecordReader<K, V> implements RecordReader<K, V> {
+		private RecordReader<K, V> rawIn;
 		private Counters.Counter inputByteCounter;
 		private Counters.Counter inputRecordCounter;
 
-		TrackedRecordReader(RecordReader<K,V> raw, Counters counters) {
+		TrackedRecordReader(RecordReader<K, V> raw, Counters counters) {
 			rawIn = raw;
 			inputRecordCounter = counters.findCounter(MAP_INPUT_RECORDS);
 			inputByteCounter = counters.findCounter(MAP_INPUT_BYTES);
@@ -183,8 +189,7 @@ public class MapTask extends Task {
 			return rawIn.createValue();
 		}
 
-		public synchronized boolean next(K key, V value)
-		throws IOException {
+		public synchronized boolean next(K key, V value) throws IOException {
 
 			setProgress(getProgress());
 			long beforePos = getPos();
@@ -195,45 +200,66 @@ public class MapTask extends Task {
 			}
 			return ret;
 		}
-		public long getPos() throws IOException { return rawIn.getPos(); }
-		public void close() throws IOException { rawIn.close(); }
+
+		public long getPos() throws IOException {
+			return rawIn.getPos();
+		}
+
+		public void close() throws IOException {
+			rawIn.close();
+		}
+
 		public float getProgress() throws IOException {
 			return rawIn.getProgress();
 		}
 	}
-	
+
 	public void setProgress(float progress) {
 		super.setProgress(progress);
 	}
 
 	@SuppressWarnings("unchecked")
-	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical, final BufferUmbilicalProtocol bufferUmbilical,final MrClient mrUmbilical)
-	throws IOException {
+	public void run(final JobConf job, final TaskUmbilicalProtocol umbilical,
+			final BufferUmbilicalProtocol bufferUmbilical,
+			final MrClient mrUmbilical) throws IOException {
+		try {
+			FileSystem fs = FileSystem.getLocal(this.getConf());
+			// Path tmp =
+			// LogFileName.getLocalPathForWrite(task.getTaskID()+"_qLOG",
+			// task.getConf());
+			dout = fs.create(new Path("/home/zhumeiqi/hadoop/log/"
+					+ this.getJobID() + "/" + this.getTaskID() + "_qLOG"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+
+		}
+		dout.writeUTF("MapTaskBegin:" + System.currentTimeMillis() + "\n");
+
 		final Reporter reporter = getReporter(umbilical);
-	    // start thread that will handle communication with parent
-	    startCommunicationThread(umbilical);
+		// start thread that will handle communication with parent
+		startCommunicationThread(umbilical);
 
 		initialize(job, reporter);
 
-	    // check if it is a cleanupJobTask
-	    if (jobCleanup) {
-	      runJobCleanupTask(umbilical);
-	      return;
-	    }
-	    if (jobSetup) {
-	      runJobSetupTask(umbilical);
-	      return;
-	    }
-	    if (taskCleanup) {
-	      runTaskCleanupTask(umbilical);
-	      return;
-	    }
-	    
+		// check if it is a cleanupJobTask
+		if (jobCleanup) {
+			runJobCleanupTask(umbilical);
+			return;
+		}
+		if (jobSetup) {
+			runJobSetupTask(umbilical);
+			return;
+		}
+		if (taskCleanup) {
+			runTaskCleanupTask(umbilical);
+			return;
+		}
 		int numReduceTasks = conf.getNumReduceTasks();
 		LOG.info("numReduceTasks: " + numReduceTasks);
-		
-		boolean stream = job.getBoolean("mapred.stream", false) ||
-						 job.getBoolean("mapred.job.monitor", false);
+
+		boolean stream = job.getBoolean("mapred.stream", false)
+				|| job.getBoolean("mapred.job.monitor", false);
 		if (stream) {
 			Class mapCombiner = job.getClass("mapred.map.combiner.class", null);
 			if (mapCombiner != null) {
@@ -244,27 +270,30 @@ public class MapTask extends Task {
 			Class valClass = job.getMapOutputValueClass();
 			Class<? extends CompressionCodec> codecClass = null;
 			if (conf.getCompressMapOutput()) {
-				codecClass = conf.getMapOutputCompressorClass(DefaultCodec.class);
+				codecClass = conf
+						.getMapOutputCompressorClass(DefaultCodec.class);
 			}
-			JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this, job, 
-					reporter, getProgress(), false, keyClass, valClass, codecClass,mrUmbilical);
-			
-			RecordReader rawIn =                  // open input
-				job.getInputFormat().getRecordReader(instantiatedSplit, job, reporter);
+			JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this,
+					job, reporter, getProgress(), false, keyClass, valClass,
+					codecClass, mrUmbilical);
+
+			RecordReader rawIn = // open input
+			job.getInputFormat().getRecordReader(instantiatedSplit, job,
+					reporter);
 			this.recordReader = new TrackedRecordReader(rawIn, getCounters());
 
-			MapRunnable runner =
-				(MapRunnable)ReflectionUtils.newInstance(job.getMapRunnerClass(), job);
-			
+			MapRunnable runner = (MapRunnable) ReflectionUtils.newInstance(
+					job.getMapRunnerClass(), job);
+
 			runner.configure(job);
-			
-			runner.run(this.recordReader, buffer, reporter);      
+
+			runner.run(this.recordReader, buffer, reporter);
 			getProgress().complete();
-		}
-		else {
+		} else {
 			boolean pipeline = job.getBoolean("mapred.map.pipeline", false);
 			if (numReduceTasks > 0) {
-				Class mapCombiner = job.getClass("mapred.map.combiner.class", null);
+				Class mapCombiner = job.getClass("mapred.map.combiner.class",
+						null);
 				if (mapCombiner != null) {
 					job.setCombinerClass(mapCombiner);
 				}
@@ -273,23 +302,25 @@ public class MapTask extends Task {
 				Class valClass = job.getMapOutputValueClass();
 				Class<? extends CompressionCodec> codecClass = null;
 				if (conf.getCompressMapOutput()) {
-					codecClass = conf.getMapOutputCompressorClass(DefaultCodec.class);
+					codecClass = conf
+							.getMapOutputCompressorClass(DefaultCodec.class);
 				}
-				JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this, job, 
-						reporter, getProgress(), pipeline, 
-						keyClass, valClass, codecClass,mrUmbilical);
+				JOutputBuffer buffer = new JOutputBuffer(bufferUmbilical, this,
+						job, reporter, getProgress(), pipeline, keyClass,
+						valClass, codecClass, mrUmbilical);
 				collector = buffer;
-			} else { 
-				collector = new DirectMapOutputCollector(umbilical, job, reporter);
+			} else {
+				collector = new DirectMapOutputCollector(umbilical, job,
+						reporter);
 			}
 
 			// reinstantiate the split
 			try {
-				instantiatedSplit = (InputSplit) 
-				ReflectionUtils.newInstance(job.getClassByName(splitClass), job);
+				instantiatedSplit = (InputSplit) ReflectionUtils.newInstance(
+						job.getClassByName(splitClass), job);
 			} catch (ClassNotFoundException exp) {
-				IOException wrap = new IOException("Split class " + splitClass + 
-				" not found");
+				IOException wrap = new IOException("Split class " + splitClass
+						+ " not found");
 				wrap.initCause(exp);
 				throw wrap;
 			}
@@ -305,16 +336,16 @@ public class MapTask extends Task {
 				job.setLong("map.input.length", fileSplit.getLength());
 			}
 
-
-			RecordReader rawIn =                  // open input
-				job.getInputFormat().getRecordReader(instantiatedSplit, job, reporter);
+			RecordReader rawIn = // open input
+			job.getInputFormat().getRecordReader(instantiatedSplit, job,
+					reporter);
 			this.recordReader = new TrackedRecordReader(rawIn, getCounters());
 
-			MapRunnable runner =
-				(MapRunnable)ReflectionUtils.newInstance(job.getMapRunnerClass(), job);
+			MapRunnable runner = (MapRunnable) ReflectionUtils.newInstance(
+					job.getMapRunnerClass(), job);
 
 			try {
-				runner.run(this.recordReader, collector, reporter);      
+				runner.run(this.recordReader, collector, reporter);
 				getProgress().complete();
 				LOG.info("Map task complete. Perform final close.");
 
@@ -325,28 +356,39 @@ public class MapTask extends Task {
 					if (finalOut != null) {
 						LOG.debug("Register final output");
 						bufferUmbilical.output(finalOut);
-						mrUmbilical.invoke(DoubleWritable.class, "output",finalOut.header().owner(),finalOut);
-						
+						ReplySet records=mrUmbilical.invoke(DoubleWritable.class, "output",
+								finalOut.header().owner(), finalOut);
+						Object ret=null;
+						while((ret = records.nextElement()) != null)
+						{
+							
+							LOG.info(this.getTaskID()+":Flush last "+finalOut.header().progress());
+						}
 					}
-				}
-				else {
-					((DirectMapOutputCollector)collector).close();
+				} else {
+					((DirectMapOutputCollector) collector).close();
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
 				throw e;
 			} finally {
-				//close
-				this.recordReader.close();                               // close input
+				// close
+				this.recordReader.close(); // close input
 			}
 		}
-
+		ReplySet records= mrUmbilical.invoke(DoubleWritable.class,"finish",this.getTaskID());
+		Object ret=null;
+		while((ret = records.nextElement()) != null)
+		{
+			
+			LOG.info(this.getTaskID()+":report finish");
+		}
+		System.out.print("Task success finished\n");
+		dout.close();
 		done(umbilical);
 	}
-	
 
-	class DirectMapOutputCollector<K, V>
-	implements OutputCollector<K, V> {
+	class DirectMapOutputCollector<K, V> implements OutputCollector<K, V> {
 
 		private RecordWriter<K, V> out = null;
 
@@ -361,7 +403,8 @@ public class MapTask extends Task {
 			String finalName = getOutputName(getPartition());
 			FileSystem fs = FileSystem.get(job);
 
-			out = job.getOutputFormat().getRecordWriter(fs, job, finalName, reporter);
+			out = job.getOutputFormat().getRecordWriter(fs, job, finalName,
+					reporter);
 
 			Counters counters = getCounters();
 			mapOutputRecordCounter = counters.findCounter(MAP_OUTPUT_RECORDS);

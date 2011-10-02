@@ -484,7 +484,7 @@ public class TaskTracker
 	 * add zhumeiqi @2011.9.9
 	 */
     InetSocketAddress mrAddress = QuatrainManager.getServerAddress(fConf);
-    this.qManager = new QuatrainManager(mrAddress.getHostName(),mrAddress.getPort(),1000,fConf,FileSystem.getLocal(fConf));
+    this.qManager = new QuatrainManager(mrAddress.getHostName(),mrAddress.getPort(),10000,fConf,FileSystem.getLocal(fConf));
     this.qManager.start();
     this.jvmManager = new JvmManager(this);
 
@@ -1830,6 +1830,7 @@ public class TaskTracker
   private TaskInProgress registerTask(LaunchTaskAction action, 
       TaskLauncher launcher) {
     Task t = action.getTask();
+    qManager.begin(t.getTaskID());
     LOG.info("LaunchTaskAction (registerTask): " + t.getTaskID() +
              " task's state:" + t.getState());
     TaskInProgress tip = new TaskInProgress(t, this.fConf, launcher);
@@ -2112,6 +2113,7 @@ public class TaskTracker
      * Kick off the task execution
      */
     public synchronized void launchTask() throws IOException {
+    	
       if (this.taskStatus.getRunState() == TaskStatus.State.UNASSIGNED ||
           this.taskStatus.getRunState() == TaskStatus.State.FAILED_UNCLEAN ||
           this.taskStatus.getRunState() == TaskStatus.State.KILLED_UNCLEAN) {
@@ -2498,8 +2500,7 @@ public class TaskTracker
           kill(wasFailure);
         }
       }
-      
-      // Cleanup on the finished task
+     // Cleanup on the finished task
       cleanup(true);
     }
 
@@ -2516,6 +2517,7 @@ public class TaskTracker
           failures += 1;
         }
         // runner could be null if task-cleanup attempt is not localized yet
+        qManager.kill(task.getTaskID());
         if (runner != null) {
           runner.kill();
         }
@@ -2585,6 +2587,7 @@ public class TaskTracker
           // got launched before this method.
           if (tasks.get(taskId) == this) {
             tasks.remove(taskId);
+            
           }
         }
         synchronized (this){

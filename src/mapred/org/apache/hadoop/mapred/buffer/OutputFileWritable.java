@@ -1,4 +1,4 @@
-/**
+			/**
  * 
  */
 package org.apache.hadoop.mapred.buffer;
@@ -25,6 +25,7 @@ import org.stanzax.quatrain.io.DirectWritable;
  */
 public abstract class OutputFileWritable implements DirectWritable {
 
+	private float process = 0.0f;
 	public int getPartition() {
 		return partition;
 	}
@@ -72,9 +73,18 @@ public abstract class OutputFileWritable implements DirectWritable {
 	protected OutputFileWritable(OutputFile file, FileSystem rfs, JobConf conf) {
 		this.file = file;
 		this.rfs = rfs;
+		this.process = file.header().progress();
 		//this.conf = conf;
 	}
 	
+	public float getProcess() {
+		return process;
+	}
+
+	public void setProcess(float process) {
+		this.process = process;
+	}
+
 	/**
 	 * Construct instance intended for read operation
 	 * */
@@ -92,12 +102,11 @@ public abstract class OutputFileWritable implements DirectWritable {
 		try {
 			file.open(rfs);
 		} catch (IOException e) {
-			/* We don't want to send anymore of this output! */
+			System.out.print("File open Failed\n");
 			return BufferExchange.Transfer.TERMINATE;
 		}
 
 		try {
-		//	ostream.writeInt(Integer.MAX_VALUE); // Sending something
 			OutputFile.Header header = file.seek(partition);
 
 			OutputFile.Header.writeHeader(ostream, header);
@@ -107,11 +116,9 @@ public abstract class OutputFileWritable implements DirectWritable {
 			LOG.debug(this + " sending " + header);
 			write(header, file.dataInputStream(), ostream);
 			return BufferExchange.Transfer.SUCCESS;
-		//	}
-		//	return response;
+
 		} catch (IOException e) {
-			// close(); // Close so reconnect will figure out current status.
-						// Quatrain takes charge of closing sockets.
+			System.out.println("IO failure in transmit");
 			LOG.debug(e);
 		}
 		return BufferExchange.Transfer.RETRY;
@@ -140,6 +147,9 @@ public abstract class OutputFileWritable implements DirectWritable {
 			n = fstream.read(buf, 0, (int) Math.min(length, buf.length));
 		}
 		ostream.flush();
+		if (header.eof()) {
+			System.out.println("EOF write success: " + header.owner);
+		}
 		LOG.debug(bytesSent + " total bytes sent for header " + header);
 	}
 	

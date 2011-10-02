@@ -32,6 +32,7 @@ import org.apache.hadoop.fs.FSError;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.mapred.JvmTask;
 import org.apache.hadoop.mapred.buffer.BufferUmbilicalProtocol;
@@ -185,6 +186,13 @@ class Child {
         FileSystem.get(job).setWorkingDirectory(job.getWorkingDirectory());
         try {
           task.run(job, umbilical, bufferUmbilical,mrUmbilical);             // run the task
+      /*    
+          if(task.isMapTask())
+          {
+        	  mrUmbilical.invoke(DoubleWritable.class, "finish",task.getTaskID());
+          }
+        */  //Too do list
+          
         } finally {
           TaskLog.syncLogs(firstTaskid, taskid, isCleanup);
           if (!taskid.equals(firstTaskid) && 
@@ -197,6 +205,8 @@ class Child {
           break;
         }
       }
+      
+      
     } catch (FSError e) {
       LOG.fatal("FSError from child", e);
       umbilical.fsError(taskid, e.getMessage());
@@ -214,6 +224,8 @@ class Child {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       throwable.printStackTrace(new PrintStream(baos));
       umbilical.reportDiagnosticInfo(taskid, baos.toString());
+      
+      
     } finally {
       RPC.stopProxy(umbilical);
       MetricsContext metricsContext = MetricsUtil.getContext("mapred");
