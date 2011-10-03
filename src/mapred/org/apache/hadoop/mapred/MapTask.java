@@ -355,7 +355,7 @@ public class MapTask extends Task {
 					buffer.free();
 					if (finalOut != null) {
 						LOG.debug("Register final output");
-						bufferUmbilical.output(finalOut);
+						//bufferUmbilical.output(finalOut);
 						ReplySet records=mrUmbilical.invoke(DoubleWritable.class, "output",
 								finalOut.header().owner(), finalOut);
 						Object ret=null;

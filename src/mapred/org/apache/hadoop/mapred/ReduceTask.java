@@ -72,7 +72,6 @@ public class ReduceTask extends Task {
 	 * @zhumeiqi add code
 	 */
 	Set<TaskAttemptID> failedTask = new HashSet<TaskAttemptID>();
-	FSDataOutputStream dout = null;
 
 	private class requestStatus {
 		ReplySet reply = null;
@@ -142,6 +141,7 @@ public class ReduceTask extends Task {
 		public void run() {
 			super.run();
 			ReplySet reply = null;
+			Set<TaskAttemptID>  overTask = new HashSet<TaskAttemptID>();
 			int fulldataCount = 0;
 			while (true) {
 				synchronized (preReplySets) {
@@ -163,18 +163,10 @@ public class ReduceTask extends Task {
 						if (nextHeader == null) {
 							continue;
 						}
-						try {
-							dout.writeUTF(task.getTaskID() + ":"
-									+ nextHeader.owner() + ":"
-									+ nextHeader.progress() + ":"
-									+ System.currentTimeMillis() + "\n");
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-
 						updateProgress((OutputFile.Header) nextHeader);
-						if (nextHeader.eof()) {
-							System.out.println("Receive EOF: " + (++fulldataCount));
+						if (nextHeader.eof()&&!failedTask.contains(nextHeader.owner())) {
+							overTask.add(nextHeader.owner());
+							System.out.println("Receive EOF: " + (overTask.size()));
 						}
 						reporter.progress();
 					}
@@ -191,14 +183,9 @@ public class ReduceTask extends Task {
 					replySets.remove(finished.get(j));
 				}
 
-				if (fulldataCount >= this.inputCounts) {
+				if (overTask.size() >= this.inputCounts) {
 
 					System.out.println("Shuffle finished: " + task.getTaskID());
-					try {
-						dout.flush();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
 					break;
 				}
 			}
@@ -322,7 +309,7 @@ public class ReduceTask extends Task {
 									mrClient = new MrClient(
 											InetAddress.getByName(host),
 											QuatrainManager.getServerAddress(
-													conf).getPort(), 6000000,
+													conf).getPort(), 600000000,
 											conf);
 									clients.put(host, mrClient);
 								}
@@ -553,11 +540,7 @@ public class ReduceTask extends Task {
 		}
 		try {
 			FileSystem fs = FileSystem.getLocal(this.getConf());
-			// Path tmp =
-			// LogFileName.getLocalPathForWrite(task.getTaskID()+"_qLOG",
-			// task.getConf());
-			dout = fs.create(new Path("/home/zhumeiqi/hadoop/log/"
-					+ this.getJobID() + "/" + this.getTaskID() + "_qLOG"));
+
 
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -591,8 +574,6 @@ public class ReduceTask extends Task {
 		}
 		fetcher.interrupt();
 		// getter.interrupt();
-		System.out.print("@zhumeiqi_debug:Start Reduce");
-		dout.writeUTF(("Reduce Begin" + System.currentTimeMillis() + "\n"));
 		long begin = System.currentTimeMillis();
 		try {
 			setPhase(TaskStatus.Phase.REDUCE);
@@ -605,7 +586,6 @@ public class ReduceTask extends Task {
 			setProgressFlag();
 			inputCollector.free();
 		}
-		dout.flush();
 
 		done(umbilical);
 		LOG.info("Reduce task total time = "
@@ -730,7 +710,7 @@ public class ReduceTask extends Task {
 		 */
 		InetSocketAddress mcAddress = QuatrainManager.getServerAddress(conf);
 		mrClient = new MrClient(mcAddress.getAddress(), mcAddress.getPort(),
-				500000, conf);
+				50000000, conf);
 		if (reducePipeline) {
 			inputCollector.flush();
 			if (outputBuffer == null) {

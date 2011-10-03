@@ -118,7 +118,7 @@ public class RandomTextWriter extends Configured implements Tool {
       minWordsInValue = 
         job.getInt("test.randomtextwrite.min_words_value", 10);
       wordsInValueRange = 
-        (job.getInt("test.randomtextwrite.max_words_value", 100) - 
+        (job.getInt("test.randomtextwrite.max_words_value", 500) - 
          minWordsInValue);
     }
     
@@ -191,7 +191,7 @@ public class RandomTextWriter extends Configured implements Tool {
     
     JobClient client = new JobClient(job);
     ClusterStatus cluster = client.getClusterStatus();
-    int numMapsPerHost = job.getInt("test.randomtextwrite.maps_per_host", 10);
+    int numMapsPerHost = job.getInt("test.randomtextwrite.maps_per_host", 4);
     long numBytesToWritePerMap = job.getLong("test.randomtextwrite.bytes_per_map",
                                              1*1024*1024*1024);
     if (numBytesToWritePerMap == 0) {

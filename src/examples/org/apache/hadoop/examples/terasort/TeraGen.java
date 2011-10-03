@@ -346,6 +346,14 @@ public class TeraGen extends Configured implements Tool {
     	args[0] = args[1];
     	args[1] = args[2];
     }
+    for(int i = 0;i<args.length;i++)
+    {
+    	if("-m".equals(args[i]))
+    	{
+    		job.setNumMapTasks(Integer.parseInt(args[i+1]));
+    	}
+    }
+    
     setNumberOfRows(job, Long.parseLong(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     job.setJobName("TeraGen");

@@ -56,6 +56,7 @@ public class QuatrainManager extends MrServer {
 	 * 记录所有
 	 */
 	private ConcurrentHashMap<TaskAttemptID, STATUS> taskStatus = new ConcurrentHashMap<TaskAttemptID, STATUS>();
+	private Set<TaskAttemptID> overTask = new HashSet<TaskAttemptID>();
 	// 记录所有节点上job对应的
 
 	private Map<String, Set<String>> servedIds = new ConcurrentHashMap<String, Set<String>>();
@@ -99,12 +100,16 @@ public class QuatrainManager extends MrServer {
 			// outputFile.header().
 			OutputFileWritable outfile = new FileWritable(outputFile, rfs, null);
 			tmFils.add(outfile);
-		}
-		if (outputFile.header().eof()) {
-			System.out.println("EOF put into manager.");//all data ok
-			synchronized (taskStatus) {
-				this.taskStatus.put(mapID, STATUS.SUCCESS);
+			if (outputFile.header().eof()) {
+				if(!this.overTask.contains(mapID))
+				{
+					System.out.print("EOF put into manager.");
+				}
 			}
+		}
+		if(outputFile.header().eof()&&outputFile.header().progress()==1.0f)
+		synchronized (taskStatus) {
+			this.taskStatus.put(mapID, STATUS.SUCCESS);
 		}
 		preturn(new DoubleWritable(0));
 
@@ -115,6 +120,7 @@ public class QuatrainManager extends MrServer {
 		System.out.println("Request file from " + redcueID);
 		boolean sendAll = false;
 		while (true) {
+			
 			ArrayList<OutputFileWritable> fileToDeal = new ArrayList<OutputFileWritable>();
 
 			STATUS s = null;
@@ -127,11 +133,12 @@ public class QuatrainManager extends MrServer {
 				}
 			}
 			int size = fileToDeal.size();
+		
 			for (int i = 0; i < size; i++) {
+				
 				OutputFileWritable outPutfile = fileToDeal.get(i);
 				synchronized (outPutfile) {
 					OutputFile file = outPutfile.file;
-					
 					if (!file.isServiced(redcueID)) {
 						System.out.println("@zhumeiqi_serve not served"
 								+ redcueID);
@@ -140,8 +147,11 @@ public class QuatrainManager extends MrServer {
 						preturn(outPutfile); //TODO New OutputFileWritable. Check state.
 						file.serviced(redcueID);
 						if(file.header().eof()){
-							sendAll=true;
-							System.out.println("preturn finished with EOF: " + redcueID);
+							if(file.header().progress()==1.0f)
+							{
+								sendAll=true;
+								System.out.println("preturn finished with EOF: " + redcueID);
+							}
 						}
 					}
 				}
@@ -158,6 +168,12 @@ public class QuatrainManager extends MrServer {
 					System.out.println("Killed task WITHOUT eof: " + mapID);
 				} else System.out.println("Killed task with eof: supposed SENT: " + mapID);
 				break;
+			}
+			try {
+				Thread.sleep(5000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 		return;
