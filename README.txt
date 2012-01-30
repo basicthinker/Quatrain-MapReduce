@@ -1,4 +1,5 @@
-HOP
+We modified the following Hadoop MapReduce variant by replacing its data transfer mechanism with Quatrain. Our work simplifies the original code and improves performance with regard to the reduce task progress.
+
 ===========
 
 The Hadoop Online Prototype (HOP) is a modified version of Hadoop
